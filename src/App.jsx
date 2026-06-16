@@ -296,7 +296,7 @@ function App() {
     <main className="app-shell">
       <header className="top trip-header">
         <div>
-          <h1>thravel</h1>
+          <h1>Our Travel</h1>
           <p>{viewTrip ? viewTrip.destination || 'Untitled trip' : 'Start a clean trip log'}</p>
         </div>
         {viewTrip ? (
