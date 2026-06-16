@@ -5,7 +5,14 @@ const EXCHANGE_CACHE_SECONDS = 60 * 60 * 24
 const exchangeCache = new Map()
 const MAP_THUMBNAIL_CACHE_SECONDS = 60 * 60 * 24
 const mapThumbnailCache = new Map()
-const GOOGLE_MAP_HOSTS = ['maps.google.com', 'google.com', 'www.google.com', 'maps.app.goo.gl', 'goo.gl', 'g.co']
+const GOOGLE_MAP_HOSTS = [
+  'maps.google.com',
+  'google.com',
+  'www.google.com',
+  'maps.app.goo.gl',
+  'goo.gl',
+  'g.co',
+]
 
 const CURRENCY_WORDS = {
   vnd: 'VND',
@@ -80,6 +87,38 @@ function isImageUrlCandidate(rawUrl) {
   )
 }
 
+function buildSvgPlaceholder(context) {
+  const title = (safeText(context?.searchText) || 'Travel Location').slice(0, 26) || 'Travel Location'
+  const label = escapeHtml(context?.coordinates ? `${context.searchText || 'Map location'} ${context.coordinates.latitude.toFixed(3)}, ${context.coordinates.longitude.toFixed(3)}` : title)
+  const encoded = encodeURIComponent(
+    `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#eef2fb"/>
+      <stop offset="100%" stop-color="#dde5f5"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="240" rx="16" fill="url(#bg)"/>
+  <circle cx="180" cy="105" r="45" fill="#355ad1" opacity="0.2"/>
+  <path d="M180 38 C136 38 100 74 100 118 C100 171 180 214 180 214 C180 214 260 171 260 118 C260 74 224 38 180 38 Z" fill="#355ad1" opacity="0.16"/>
+  <circle cx="180" cy="117" r="22" fill="#ffffff" stroke="#355ad1" stroke-width="3"/>
+  <path d="M180 141 C171.7 141 164 133.3 164 125 C164 118.9 168.1 112.7 173.5 109.4 C169.2 102.1 170.7 97.2 177.4 93.9 C188.6 88.8 191.3 88.8 202.5 93.9 C209.2 97.2 210.7 102.1 206.4 109.4 C211.9 112.7 216 118.9 216 125 C216 133.3 208.3 141 200 141 C198.6 141 197.2 140.7 195.8 140.3 C192.8 146.7 186.9 151 180 151 C173.1 151 167.2 146.7 164.2 140.3 C162.8 140.7 161.4 141 160 141Z" fill="#355ad1"/>
+  <text x="180" y="210" text-anchor="middle" font-size="22" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#355ad1">${safeText(label).slice(0, 36)}</text>
+</svg>`,
+  )
+  return `data:image/svg+xml;charset=UTF-8,${encoded}`
+}
+
+function escapeHtml(value) {
+  return safeText(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
 function unescapeHtmlText(value) {
   if (!value) return ''
   return safeText(value)
@@ -97,9 +136,12 @@ function isGoogleMapsUrl(urlText) {
     if (!value) return false
     const parsed = new URL(value)
     const host = parsed.hostname.toLowerCase()
-    if (!GOOGLE_MAP_HOSTS.some((candidate) => host === candidate || host.endsWith(`.${candidate}`))) return false
-    if (host.includes('goo.gl')) return true
-    return parsed.pathname.startsWith('/maps') || parsed.pathname.includes('/maps/')
+    if (GOOGLE_MAP_HOSTS.some((candidate) => host === candidate || host.endsWith(`.${candidate}`))) return true
+    if (host.includes('maps.') && host.includes('.google.')) return true
+    return (
+      (host.includes('google.') || host === 'google') &&
+      (parsed.pathname.startsWith('/maps') || parsed.pathname.includes('/maps/'))
+    )
   } catch (error) {
     return false
   }
@@ -334,6 +376,8 @@ function extractTitleFromHtml(html) {
 
 async function isUsableMapImage(url) {
   if (!url) return false
+  if (!isImageUrlCandidate(url)) return false
+  if (/data:image\/svg\+xml/i.test(url)) return true
   try {
     const response = await fetch(url, {
       method: 'HEAD',
@@ -343,11 +387,11 @@ async function isUsableMapImage(url) {
         accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
       },
     })
-    if (!response.ok) return false
+    if (!response.ok) return true
     const type = response.headers.get('content-type') || ''
-    return !type || type.startsWith('image/')
+    return !type || type.startsWith('image/') || type.includes('application/octet-stream')
   } catch (error) {
-    return false
+    return isImageUrlCandidate(url)
   }
 }
 
@@ -365,10 +409,15 @@ function extractMapPlaceContext(rawUrl) {
   const context = { coordinates: null, searchText: null }
   try {
     const parsed = new URL(rawUrl)
-    const params = ['ll', 'sll', 'center', 'q']
-    if (parsed.searchParams.get('query')) {
-      context.searchText = decodeMapText(parsed.searchParams.get('query'))
+    const params = ['ll', 'sll', 'center', 'q', 'query', 'destination', 'origin', 'search_query', 'near', 'map_action']
+    const mapParams = ['place_id', 'ftid', 'entry', 'cid']
+    for (const key of mapParams) {
+      if (parsed.searchParams.get(key)) {
+        context.searchText = `${key}:${decodeMapText(parsed.searchParams.get(key))}`
+        break
+      }
     }
+
     for (const key of params) {
       const raw = parsed.searchParams.get(key)
       if (!raw) continue
@@ -386,6 +435,11 @@ function extractMapPlaceContext(rawUrl) {
       const longitude = Number(atMatch[2])
       if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
         context.coordinates = { latitude, longitude }
+        if (!context.searchText) {
+          const afterAt = parsed.pathname.slice(atMatch.index + atMatch[0].length)
+          const pathToken = afterAt.split('/')[0]
+          if (pathToken) context.searchText = decodeMapText(pathToken.replace(/\+/g, ' '))
+        }
         return context
       }
     }
@@ -405,6 +459,21 @@ function extractMapPlaceContext(rawUrl) {
     const mapsSearch = parsed.pathname.match(/\/maps\/search\/([^/?#]+)/)
     if (mapsSearch) {
       context.searchText = decodeMapText(mapsSearch[1]).replace(/\+/g, ' ')
+      return context
+    }
+
+    const mapsDirMatch = parsed.pathname.match(/\/maps\/dir\/([^/?#]+)(?:\/([^/?#]+))?/)
+    if (mapsDirMatch) {
+      const origin = decodeMapText(mapsDirMatch[1] || '').replace(/\+/g, ' ')
+      const destination = decodeMapText(mapsDirMatch[2] || '').replace(/\+/g, ' ')
+      context.searchText = destination || origin
+      return context
+    }
+
+    const mapsDataMatch = parsed.pathname.match(/maps\/place\/([^/?#]+)\/([^/?#]+)?\/data/)
+    if (mapsDataMatch) {
+      const place = decodeMapText(mapsDataMatch[1] || '').replace(/\+/g, ' ')
+      if (place) context.searchText = place
       return context
     }
 
@@ -436,6 +505,15 @@ function rawTextToCoords(rawText) {
     const latitude = Number(altCoords[1])
     const longitude = Number(altCoords[2])
     if (Number.isFinite(latitude) && Number.isFinite(longitude)) return { latitude, longitude }
+  }
+  const shortDMatch = value.match(/!1d(-?\d+(?:\.\d+)?)[,!]2d(-?\d+(?:\.\d+)?)/i)
+  if (shortDMatch?.[1] && shortDMatch?.[2]) {
+    const latitude = Number(shortDMatch[1])
+    const longitude = Number(shortDMatch[2])
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+    if (Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+      return { latitude, longitude }
+    }
   }
   return null
 }
@@ -517,13 +595,24 @@ async function geocodeSearchText(searchText) {
 function createMapFallbackImage(context) {
   const latitude = Number(context?.latitude)
   const longitude = Number(context?.longitude)
+
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return 'https://tile.openstreetmap.org/1/1/1.png'
+    return buildSvgPlaceholder(context)
+  }
+
+  const fixedLat = latitude.toFixed(6)
+  const fixedLng = longitude.toFixed(6)
+  const staticMapCandidates = [
+    `https://staticmap.openstreetmap.de/staticmap.php?center=${fixedLat},${fixedLng}&zoom=16&size=600x300&markers=${fixedLat},${fixedLng},lightblue1&format=PNG`,
+    `https://a.tile.openstreetmap.org/0/0/0.png`,
+  ]
+
+  for (const candidate of staticMapCandidates) {
+    if (isImageUrlCandidate(candidate)) return candidate
   }
 
   const contextTile = tileCoordFromLngLat(latitude, longitude, 14)
-  if (!contextTile) return 'https://tile.openstreetmap.org/1/1/1.png'
-
+  if (!contextTile) return buildSvgPlaceholder(context)
   return `https://tile.openstreetmap.org/${contextTile.z}/${contextTile.x}/${contextTile.y}.png`
 }
 
@@ -550,8 +639,21 @@ async function resolveMapThumbnailFromUrl(urlText) {
   const cached = getCachedMapThumbnail(urlText)
   if (cached !== null) return cached
 
+  const fallbackContext = {
+    coordinates: null,
+    searchText: null,
+  }
+  const normalizeResolvedUrl = (value, source) => {
+    if (!value) return
+    const parsed = extractMapPlaceContext(value)
+    if (parsed.coordinates) fallbackContext.coordinates = fallbackContext.coordinates || parsed.coordinates
+    if (!fallbackContext.searchText && parsed.searchText) fallbackContext.searchText = parsed.searchText
+    if (!fallbackContext.searchText && source) fallbackContext.searchText = source
+  }
+
   try {
     const resolvedUrl = await resolveMapUrl(urlText)
+    normalizeResolvedUrl(resolvedUrl)
     const response = await fetch(resolvedUrl, {
       redirect: 'follow',
       headers: {
@@ -563,6 +665,7 @@ async function resolveMapThumbnailFromUrl(urlText) {
     if (!response.ok) throw new Error('failed to fetch map page')
     const html = await response.text()
     const pageUrl = response.url
+    normalizeResolvedUrl(pageUrl, extractTitleFromHtml(html))
 
     const meta = extractMetaImage(html, pageUrl)
     if (meta && (await isUsableMapImage(meta))) {
@@ -612,11 +715,12 @@ async function resolveMapThumbnailFromUrl(urlText) {
       }
     }
 
-    const fallback = createMapFallbackImage(coordinates)
+    const fallback = createMapFallbackImage(coordinates ? { ...coordinates, searchText: context?.searchText } : { searchText: context?.searchText })
     setCachedMapThumbnail(urlText, fallback)
     return fallback
   } catch (error) {
-    const context = extractMapPlaceContext(urlText)
+    normalizeResolvedUrl(urlText)
+    const context = fallbackContext
     let coordinates = context?.coordinates
     let wikiImage = null
     if (coordinates) {
@@ -638,7 +742,7 @@ async function resolveMapThumbnailFromUrl(urlText) {
         return wikiImage
       }
     }
-    const fallback = createMapFallbackImage(coordinates)
+    const fallback = createMapFallbackImage(coordinates ? { ...coordinates, searchText: context?.searchText } : { searchText: context?.searchText })
     setCachedMapThumbnail(urlText, fallback)
     return fallback
   }
