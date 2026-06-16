@@ -305,6 +305,9 @@ function extractMapPlaceContext(rawUrl) {
   try {
     const parsed = new URL(rawUrl)
     const params = ['ll', 'sll', 'center', 'q']
+    if (parsed.searchParams.get('query')) {
+      context.searchText = decodeMapText(parsed.searchParams.get('query'))
+    }
     for (const key of params) {
       const raw = parsed.searchParams.get(key)
       if (!raw) continue
@@ -337,8 +340,78 @@ function extractMapPlaceContext(rawUrl) {
       context.searchText = decodeMapText(placeMatch[1]).replace(/\+/g, ' ')
       return context
     }
+
+    const hashMatch = parsed.hash || parsed.pathname
+    const hashCoords = rawTextToCoords(hashMatch)
+    if (hashCoords) return { ...context, coordinates: hashCoords }
   } catch (error) {}
   return context
+}
+
+function rawTextToCoords(rawText) {
+  const value = safeText(rawText)
+  if (!value) return null
+  const hashLatMatch = value.match(/!3d(-?\d+(?:\.\d+)?)/i)
+  const hashLngMatch = value.match(/!4d(-?\d+(?:\.\d+)?)/i)
+  if (hashLatMatch?.[1] && hashLngMatch?.[1]) {
+    const latitude = Number(hashLatMatch[1])
+    const longitude = Number(hashLngMatch[1])
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+      if (Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+        return { latitude, longitude }
+      }
+    }
+  }
+  const altCoords = value.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+  if (altCoords) {
+    const latitude = Number(altCoords[1])
+    const longitude = Number(altCoords[2])
+    if (Number.isFinite(latitude) && Number.isFinite(longitude)) return { latitude, longitude }
+  }
+  return null
+}
+
+function tileCoordFromLngLat(latitude, longitude, zoom = 12) {
+  const lat = Number(latitude)
+  const lon = Number(longitude)
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null
+  const latRad = (lat * Math.PI) / 180
+  const n = 2 ** zoom
+  const x = Math.floor(n * ((lon + 180) / 360))
+  const y = Math.floor(
+    (n *
+      (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) /
+      2),
+  )
+  return { x, y, z: zoom }
+}
+
+async function fetchWikipediaLocationImage(context) {
+  const latitude = Number(context?.latitude)
+  const longitude = Number(context?.longitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+
+  try {
+    const searchResponse = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&format=json&formatversion=2&origin=*&list=geosearch&gscoord=${encodeURIComponent(
+        `${latitude}|${longitude}`,
+      )}&gsradius=5000&gslimit=1`,
+    )
+    if (!searchResponse.ok) return null
+    const searchPayload = await searchResponse.json()
+    const page = searchPayload?.query?.geosearch?.[0]
+    if (!page?.pageid) return null
+
+    const imageResponse = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&format=json&origin=*&formatversion=2&prop=pageimages&piprop=original|thumbnail&pageids=${page.pageid}&pithumbsize=500`,
+    )
+    if (!imageResponse.ok) return null
+    const imagePayload = await imageResponse.json()
+    const pageData = imagePayload?.query?.pages?.[0]
+    const directImage = pageData?.original?.source || pageData?.thumbnail?.source
+    if (directImage && directImage.startsWith('https://')) return directImage
+  } catch (error) {}
+  return null
 }
 
 async function geocodeSearchText(searchText) {
@@ -376,9 +449,13 @@ function createMapFallbackImage(context) {
   const latitude = Number(context?.latitude)
   const longitude = Number(context?.longitude)
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return 'https://staticmap.openstreetmap.de/staticmap.php?center=0,0&zoom=1&size=420x240&markers=0,0,red-pushpin&maptype=mapnik'
+    return 'https://tile.openstreetmap.org/1/1/1.png'
   }
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=14&size=420x240&markers=${latitude},${longitude},red-pushpin&maptype=mapnik`
+
+  const contextTile = tileCoordFromLngLat(latitude, longitude, 14)
+  if (!contextTile) return 'https://tile.openstreetmap.org/1/1/1.png'
+
+  return `https://tile.openstreetmap.org/${contextTile.z}/${contextTile.x}/${contextTile.y}.png`
 }
 
 async function resolveMapUrl(rawUrl) {
@@ -438,17 +515,48 @@ async function resolveMapThumbnailFromUrl(urlText) {
 
     const context = extractMapPlaceContext(pageUrl)
     let coordinates = context?.coordinates
+    let wikiImage = null
+    if (coordinates) {
+      wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage) {
+        setCachedMapThumbnail(urlText, wikiImage)
+        return wikiImage
+      }
+    }
     if (!coordinates && context?.searchText) {
       coordinates = await geocodeSearchText(context.searchText)
     }
+    if (coordinates) {
+      wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage) {
+        setCachedMapThumbnail(urlText, wikiImage)
+        return wikiImage
+      }
+    }
+
     const fallback = createMapFallbackImage(coordinates)
     setCachedMapThumbnail(urlText, fallback)
     return fallback
   } catch (error) {
     const context = extractMapPlaceContext(urlText)
     let coordinates = context?.coordinates
+    let wikiImage = null
+    if (coordinates) {
+      wikiImage = await fetchWikipediaLocationImage(coordinates)
+    }
+    if (wikiImage) {
+      setCachedMapThumbnail(urlText, wikiImage)
+      return wikiImage
+    }
     if (!coordinates && context?.searchText) {
       coordinates = await geocodeSearchText(context.searchText)
+    }
+    if (coordinates) {
+      wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage) {
+        setCachedMapThumbnail(urlText, wikiImage)
+        return wikiImage
+      }
     }
     const fallback = createMapFallbackImage(coordinates)
     setCachedMapThumbnail(urlText, fallback)
