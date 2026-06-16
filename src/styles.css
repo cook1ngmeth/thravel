@@ -758,10 +758,13 @@ textarea {
     text-align: left;
   }
 
-  .trip-header,
   .archive-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .trip-header {
+    align-items: flex-start;
   }
 
   .trip-toolbar {
@@ -774,7 +777,9 @@ textarea {
   }
 
   .header-total {
-    align-items: flex-start;
+    align-items: flex-end;
+    margin-left: auto;
+    text-align: right;
   }
 
   .trip-edit {
@@ -834,8 +839,8 @@ textarea {
 
   .trip-header {
     align-items: flex-start;
-    flex-direction: column;
-    gap: 0.35rem;
+    flex-direction: row;
+    gap: 0.45rem;
   }
 
   .trip-toolbar {
