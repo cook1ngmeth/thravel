@@ -7,6 +7,8 @@ const CATEGORIES = [
   'other',
 ]
 
+const DEFAULT_NOTEBOOK_CODE = 'SHAREDTRIP'
+
 const CURRENCY_SYMBOLS = {
   usd: 'USD',
   eur: 'EUR',
@@ -196,6 +198,16 @@ async function getNotebook(db, notebookId, code) {
   return null
 }
 
+async function getOrCreateDefaultNotebook(db) {
+  const existing = await db.prepare('SELECT id, code FROM notebooks WHERE code = ?').bind(DEFAULT_NOTEBOOK_CODE).first()
+  if (existing) return { notebookId: existing.id, syncCode: existing.code }
+
+  const id = crypto.randomUUID()
+  const now = new Date().toISOString()
+  await db.prepare('INSERT INTO notebooks (id, code, created_at) VALUES (?, ?, ?)').bind(id, DEFAULT_NOTEBOOK_CODE, now).run()
+  return { notebookId: id, syncCode: DEFAULT_NOTEBOOK_CODE }
+}
+
 async function listExpenses(db, notebookId) {
   const result = await db
     .prepare(
@@ -271,6 +283,11 @@ export default {
         const syncCode = randomCode()
         await db.prepare('INSERT INTO notebooks (id, code, created_at) VALUES (?, ?, ?)').bind(id, syncCode, now).run()
         return json({ notebookId: id, syncCode })
+      }
+
+      if (pathname === '/api/notebooks/default' && request.method === 'GET') {
+        const notebook = await getOrCreateDefaultNotebook(db)
+        return json(notebook)
       }
 
       if (pathname === '/api/notebooks' && request.method === 'GET') {

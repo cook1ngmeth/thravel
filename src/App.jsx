@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 
-const STORAGE_NOTEBOOK = 'thravel:notebook'
 const STORAGE_CACHE_PREFIX = 'thravel:cache:'
 
 function currencyFormatter(amount, currency) {
@@ -45,7 +44,6 @@ function initialDraft(item) {
 
 function App() {
   const [notebook, setNotebook] = useState(null)
-  const [joinCode, setJoinCode] = useState('')
   const [note, setNote] = useState('')
   const [expenses, setExpenses] = useState([])
   const [loading, setLoading] = useState(false)
@@ -57,16 +55,7 @@ function App() {
   const total = useMemo(() => expenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0), [expenses])
 
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_NOTEBOOK)
-    if (saved) {
-      const parsed = JSON.parse(saved)
-      setNotebook(parsed)
-      hydrateCache(parsed.notebookId)
-      refreshExpenses(parsed.notebookId)
-      return
-    }
-
-    createNotebook()
+    openSharedTrip()
   }, [])
 
   async function hydrateCache(notebookId) {
@@ -78,35 +67,17 @@ function App() {
     } catch (error) {}
   }
 
-  async function createNotebook() {
+  async function openSharedTrip() {
     try {
       setLoading(true)
-      const res = await fetch('/api/notebooks', { method: 'POST' })
+      const res = await fetch('/api/notebooks/default')
       const next = await res.json()
-      if (!res.ok) throw new Error(next?.error || 'Unable to create notebook.')
+      if (!res.ok) throw new Error(next?.error || 'Unable to open trip.')
       setNotebook(next)
-      localStorage.setItem(STORAGE_NOTEBOOK, JSON.stringify(next))
+      hydrateCache(next.notebookId)
       await refreshExpenses(next.notebookId)
     } catch (err) {
-      setError(err.message || 'Cannot start notebook')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  async function joinNotebook() {
-    if (!joinCode.trim()) return
-    try {
-      setLoading(true)
-      const res = await fetch(`/api/notebooks?code=${encodeURIComponent(joinCode.trim())}`)
-      const data = await res.json()
-      if (!res.ok) throw new Error(data?.error || 'Notebook not found.')
-      setNotebook(data)
-      localStorage.setItem(STORAGE_NOTEBOOK, JSON.stringify(data))
-      setJoinCode('')
-      await refreshExpenses(data.notebookId)
-    } catch (err) {
-      setError(err.message || 'Join failed')
+      setError(err.message || 'Cannot open trip')
     } finally {
       setLoading(false)
     }
@@ -203,15 +174,15 @@ function App() {
     <main className="app-shell">
       <header className="top">
         <h1>thravel</h1>
-        <p>Keep your trip spending in one simple place</p>
+        <p>One shared trip log for everyone using this link</p>
       </header>
 
       <section className="card unified-card">
         <div className="hero-row">
           <div className="hero-copy">
-            <span className="eyebrow">your trip code</span>
-            <strong>{notebook ? notebook.syncCode : '...'}</strong>
-            <p className="support-copy">Use this on another device to open the same trip.</p>
+            <span className="eyebrow">shared trip</span>
+            <strong>Everyone here sees the same log</strong>
+            <p className="support-copy">Add a note and it shows up for anyone opening this trip.</p>
           </div>
           <div className="total-tile">
             <span className="eyebrow">trip total</span>
@@ -232,17 +203,6 @@ function App() {
           <button className="primary" onClick={saveNote} disabled={loading}>
             save note
           </button>
-          <div className="join-row">
-            <input
-              value={joinCode}
-              onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="Open an existing trip with a trip code"
-              aria-label="Trip code"
-            />
-            <button className="secondary" onClick={joinNotebook} disabled={loading || !joinCode}>
-              open trip
-            </button>
-          </div>
         </div>
       </section>
 
