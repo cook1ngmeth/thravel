@@ -50,6 +50,32 @@ body {
   font-size: 1rem;
 }
 
+.trip-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.5rem 0.15rem 0.25rem;
+}
+
+.header-total {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+}
+
+.header-total span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.header-total strong {
+  font-size: 1.2rem;
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -77,6 +103,7 @@ body {
 
 textarea,
 input,
+select,
 button {
   width: 100%;
   border: 1px solid var(--line);
@@ -86,7 +113,8 @@ button {
 }
 
 textarea,
-input {
+input,
+select {
   padding: 0.8rem 0.95rem;
   background: var(--surface-soft);
   color: var(--text);
@@ -94,7 +122,8 @@ input {
 }
 
 textarea:focus,
-input:focus {
+input:focus,
+select:focus {
   border-color: var(--line-strong);
   background: #fff;
 }
@@ -133,6 +162,47 @@ button:disabled {
   display: flex;
   flex-direction: column;
   gap: 0.95rem;
+}
+
+.start-card,
+.trip-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.trip-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.trip-toolbar strong {
+  display: block;
+  margin-top: 0.2rem;
+}
+
+.toolbar-actions {
+  display: flex;
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.trip-edit {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 7rem auto auto;
+  gap: 0.5rem;
+}
+
+.currency-chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.32rem 0.55rem;
 }
 
 .hero-row {
@@ -194,6 +264,42 @@ textarea {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
+.quiet {
+  width: auto;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  padding: 0.3rem 0.45rem;
+  text-transform: none;
+}
+
+.quiet:hover {
+  color: var(--primary);
+  background: var(--primary-soft);
+}
+
+.quiet.danger:hover {
+  color: #9f1239;
+  background: #fff1f2;
+}
+
+.breakdown {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.breakdown span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  padding: 0.3rem 0.55rem;
+}
+
 .list {
   display: flex;
   flex-direction: column;
@@ -248,15 +354,7 @@ textarea {
 }
 
 .row-actions button {
-  padding: 0.35rem 0.55rem;
-  font-size: 0.75rem;
   width: auto;
-  border-radius: 10px;
-  border-color: var(--line);
-  background: var(--surface-soft);
-  color: var(--primary);
-  text-transform: none;
-  letter-spacing: 0;
 }
 
 .edit-inline {
@@ -287,6 +385,45 @@ textarea {
   gap: 0.45rem;
 }
 
+.archive {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.15rem;
+}
+
+.archive h2 {
+  margin: 0.35rem 0 0.15rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.archive-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text);
+  font-weight: 500;
+  letter-spacing: 0;
+  padding: 0.6rem 0.55rem;
+  text-align: left;
+  text-transform: none;
+}
+
+.archive-row:hover {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.55);
+}
+
+.archive-row small {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
 @media (max-width: 640px) {
   .hero-row,
   .entry {
@@ -301,5 +438,20 @@ textarea {
   .total-tile {
     align-items: flex-start;
     text-align: left;
+  }
+
+  .trip-header,
+  .trip-toolbar,
+  .archive-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .header-total {
+    align-items: flex-start;
+  }
+
+  .trip-edit {
+    grid-template-columns: 1fr;
   }
 }

@@ -1,24 +1,16 @@
-const CATEGORIES = [
-  'food',
-  'transport',
-  'lodging',
-  'activities',
-  'shopping',
-  'other',
-]
-
+const CATEGORIES = ['food', 'transport', 'lodging', 'activities', 'shopping', 'other']
+const CURRENCIES = ['VND', 'USD', 'CAD', 'THB']
 const DEFAULT_NOTEBOOK_CODE = 'SHAREDTRIP'
 
-const CURRENCY_SYMBOLS = {
+const CURRENCY_WORDS = {
+  vnd: 'VND',
+  dong: 'VND',
   usd: 'USD',
-  eur: 'EUR',
-  sgd: 'SGD',
+  dollar: 'USD',
+  dollars: 'USD',
+  cad: 'CAD',
   thb: 'THB',
   baht: 'THB',
-  usd$: 'USD',
-  eur$: 'EUR',
-  sgd$: 'SGD',
-  '฿': 'THB',
 }
 
 const todayISO = () => new Date().toISOString().slice(0, 10)
@@ -38,28 +30,34 @@ function parseBody(request) {
   return request.json().catch(() => ({}))
 }
 
-function randomCode() {
-  const parts = crypto.getRandomValues(new Uint8Array(6))
-  return Array.from(parts)
-    .map((item) => item.toString(36))
-    .join('')
-    .slice(0, 8)
-    .toUpperCase()
+function randomId() {
+  return crypto.randomUUID()
+}
+
+function normalizeCurrency(currency, fallback = 'VND') {
+  const next = String(currency || fallback).toUpperCase()
+  return CURRENCIES.includes(next) ? next : fallback
 }
 
 function normalizeCategory(text) {
   const value = (text || '').toLowerCase()
   if (/(coffee|meal|restaurant|cafe|food|breakfast|lunch|dinner|snack|tea|drink)/.test(value)) return 'food'
-  if (/(taxi|uber|bus|train|flight|plane|airline|hotel|hostel|lodg|flight|metro|fuel|parking|car|transport)/.test(value))
-    return 'transport'
-  if (/(hotel|stay|hostel|room|resort)/.test(value)) return 'lodging'
+  if (/(taxi|uber|bus|train|flight|plane|airline|metro|fuel|parking|car|transport)/.test(value)) return 'transport'
+  if (/(hotel|stay|hostel|room|resort|lodg)/.test(value)) return 'lodging'
   if (/(ticket|museum|tour|entry|activity|show|attraction)/.test(value)) return 'activities'
   if (/(souvenir|shop|clothes|gift|toiletry|market|store)/.test(value)) return 'shopping'
   return 'other'
 }
 
-function parseFallback(noteText) {
-  const today = todayISO()
+function detectCurrency(text, fallback = 'VND') {
+  const lower = text.toLowerCase()
+  for (const [word, currency] of Object.entries(CURRENCY_WORDS)) {
+    if (lower.includes(word)) return currency
+  }
+  return fallback
+}
+
+function parseFallback(noteText, defaultCurrency = 'VND') {
   const notes = noteText
     .split(/[,\n;]+/)
     .map((part) => part.trim())
@@ -71,19 +69,14 @@ function parseFallback(noteText) {
     if (!money) continue
     const amount = Number(money[0].replace(',', '.'))
     if (Number.isNaN(amount)) continue
-    const lower = item.toLowerCase()
-    const currencyMatch = Object.entries(CURRENCY_SYMBOLS).find(([key]) =>
-      lower.includes(` ${key} `) || lower.startsWith(`${key} `) || lower.endsWith(` ${key}`) || lower.includes(key)
-    )
-    const currency = currencyMatch ? currencyMatch[1] : 'THB'
     const merchant = item.replace(money[0], '').replace(/\d+/g, '').replace(/\s+/g, ' ').trim()
     parsed.push({
       amount,
-      currency,
+      currency: detectCurrency(item, defaultCurrency),
       category: normalizeCategory(item),
       merchant: merchant || item.slice(0, 28),
       note: item,
-      expense_date: today,
+      expense_date: todayISO(),
       confidence: 0.35,
     })
   }
@@ -91,11 +84,11 @@ function parseFallback(noteText) {
   if (!parsed.length) {
     parsed.push({
       amount: 0,
-      currency: 'THB',
+      currency: defaultCurrency,
       category: 'other',
       merchant: '',
       note: noteText,
-      expense_date: today,
+      expense_date: todayISO(),
       confidence: 0.12,
     })
   }
@@ -103,7 +96,7 @@ function parseFallback(noteText) {
   return parsed
 }
 
-function coerceAiOutput(output) {
+function coerceAiOutput(output, defaultCurrency = 'VND') {
   const items = []
   if (!output) return items
 
@@ -124,7 +117,7 @@ function coerceAiOutput(output) {
       if (!Number.isFinite(amount)) continue
       items.push({
         amount,
-        currency: (row.currency || 'THB').toUpperCase(),
+        currency: normalizeCurrency(row.currency, defaultCurrency),
         category: normalizeCategory(row.category || row.note || row.merchant || ''),
         merchant: row.merchant || '',
         note: row.note || '',
@@ -138,21 +131,22 @@ function coerceAiOutput(output) {
   }
 }
 
-async function parseWithAI(env, noteText) {
+async function parseWithAI(env, noteText, defaultCurrency = 'VND') {
   if (!env.AI) return []
   const prompt = `
 You are an expense parser. Return only JSON.
+Use ${defaultCurrency} when the note has no currency.
 {
   "items": [
     {
       "amount": number,
-      "currency": "THB|USD|EUR|SGD",
+      "currency": "VND|USD|CAD|THB",
       "category": "food|transport|lodging|activities|shopping|other",
       "merchant": "short text",
       "note": "optional note",
       "date": "YYYY-MM-DD",
       "confidence": 0.0-1.0
-  }
+    }
   ]
 }
 Parse this note:
@@ -173,12 +167,9 @@ Parse this note:
         max_tokens: 1200,
         temperature: 0.1,
       })
-      const parsed = coerceAiOutput(response)
+      const parsed = coerceAiOutput(response, defaultCurrency)
       if (parsed.length) return parsed
     } catch (error) {
-      if (error?.message?.includes('5028')) {
-        continue
-      }
       continue
     }
   }
@@ -186,55 +177,119 @@ Parse this note:
   return []
 }
 
-async function getNotebook(db, notebookId, code) {
-  if (notebookId) {
-    const found = await db.prepare('SELECT id, code FROM notebooks WHERE id = ?').bind(notebookId).first()
-    if (found) return { notebookId: found.id, syncCode: found.code }
-  }
-  if (code) {
-    const found = await db.prepare('SELECT id, code FROM notebooks WHERE code = ?').bind(code).first()
-    if (found) return { notebookId: found.id, syncCode: found.code }
-  }
-  return null
-}
-
 async function getOrCreateDefaultNotebook(db) {
   const existing = await db.prepare('SELECT id, code FROM notebooks WHERE code = ?').bind(DEFAULT_NOTEBOOK_CODE).first()
-  if (existing) return { notebookId: existing.id, syncCode: existing.code }
+  if (existing) return { notebookId: existing.id, code: existing.code }
 
-  const id = crypto.randomUUID()
+  const id = randomId()
   const now = new Date().toISOString()
   await db.prepare('INSERT INTO notebooks (id, code, created_at) VALUES (?, ?, ?)').bind(id, DEFAULT_NOTEBOOK_CODE, now).run()
-  return { notebookId: id, syncCode: DEFAULT_NOTEBOOK_CODE }
+  return { notebookId: id, code: DEFAULT_NOTEBOOK_CODE }
 }
 
-async function listExpenses(db, notebookId) {
+function shapeTrip(row) {
+  if (!row) return null
+  return {
+    id: row.id,
+    destination: row.destination || '',
+    currency: row.currency || 'VND',
+    status: row.status || 'active',
+    started_at: row.started_at,
+    ended_at: row.ended_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }
+}
+
+async function ensureDefaultTripForExistingExpenses(db, notebookId) {
+  const active = await db
+    .prepare('SELECT * FROM trips WHERE notebook_id = ? AND status = ? ORDER BY started_at DESC LIMIT 1')
+    .bind(notebookId, 'active')
+    .first()
+  if (active) return shapeTrip(active)
+
+  const orphanCount = await db
+    .prepare('SELECT COUNT(*) AS count FROM expenses WHERE notebook_id = ? AND trip_id IS NULL')
+    .bind(notebookId)
+    .first()
+
+  if (!orphanCount?.count) return null
+
+  const id = 'default-trip'
+  const now = new Date().toISOString()
+  await db
+    .prepare(
+      `INSERT OR IGNORE INTO trips
+       (id, notebook_id, destination, currency, status, started_at, ended_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    )
+    .bind(id, notebookId, '', 'VND', 'active', now, null, now, now)
+    .run()
+  await db.prepare('UPDATE expenses SET trip_id = ? WHERE notebook_id = ? AND trip_id IS NULL').bind(id, notebookId).run()
+  const trip = await db.prepare('SELECT * FROM trips WHERE id = ?').bind(id).first()
+  return shapeTrip(trip)
+}
+
+async function listTrips(db, notebookId) {
   const result = await db
     .prepare(
-      `SELECT id, amount, currency, category, merchant, note, expense_date, source_text, confidence, created_at, updated_at
-       FROM expenses
-       WHERE notebook_id = ?
-       ORDER BY expense_date DESC, created_at DESC`,
+      `SELECT t.*,
+        COALESCE(SUM(CASE WHEN e.currency = t.currency THEN e.amount ELSE 0 END), 0) AS total
+       FROM trips t
+       LEFT JOIN expenses e ON e.trip_id = t.id
+       WHERE t.notebook_id = ?
+       GROUP BY t.id
+       ORDER BY t.status = 'active' DESC, t.started_at DESC`,
     )
     .bind(notebookId)
+    .all()
+
+  return (result.results || []).map((row) => ({ ...shapeTrip(row), total: Number(row.total || 0) }))
+}
+
+async function getTrip(db, tripId) {
+  const trip = await db.prepare('SELECT * FROM trips WHERE id = ?').bind(tripId).first()
+  return shapeTrip(trip)
+}
+
+async function getActiveTrip(db, notebookId) {
+  await ensureDefaultTripForExistingExpenses(db, notebookId)
+  const trip = await db
+    .prepare('SELECT * FROM trips WHERE notebook_id = ? AND status = ? ORDER BY started_at DESC LIMIT 1')
+    .bind(notebookId, 'active')
+    .first()
+  return shapeTrip(trip)
+}
+
+async function listExpenses(db, tripId) {
+  const result = await db
+    .prepare(
+      `SELECT id, trip_id, amount, currency, category, merchant, note, expense_date, source_text, confidence, created_at, updated_at
+       FROM expenses
+       WHERE trip_id = ?
+       ORDER BY expense_date DESC, created_at DESC`,
+    )
+    .bind(tripId)
     .all()
   return result.results || []
 }
 
-async function insertExpense(db, notebookId, item, sourceText) {
-  const id = crypto.randomUUID()
+async function insertExpense(db, notebookId, tripId, item, sourceText, defaultCurrency) {
+  const id = randomId()
   const now = new Date().toISOString()
+  const currency = normalizeCurrency(item.currency, defaultCurrency)
   await db
     .prepare(
       `INSERT INTO expenses
-      (id, notebook_id, amount, currency, category, merchant, note, expense_date, source_text, confidence, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, notebook_id, trip_id, amount, currency, category, merchant, note, expense_date, source_text, confidence, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
       notebookId,
+      tripId,
       item.amount,
-      item.currency || 'THB',
+      currency,
       item.category || normalizeCategory(item.note),
       item.merchant || '',
       item.note || '',
@@ -247,8 +302,9 @@ async function insertExpense(db, notebookId, item, sourceText) {
     .run()
   return {
     id,
+    trip_id: tripId,
     amount: Number(item.amount),
-    currency: item.currency || 'THB',
+    currency,
     category: item.category || normalizeCategory(item.note),
     merchant: item.merchant || '',
     note: item.note || '',
@@ -260,8 +316,8 @@ async function insertExpense(db, notebookId, item, sourceText) {
   }
 }
 
-function clampExpenseId(path) {
-  const [, id] = path.split('/api/expenses/')
+function pathId(path, prefix) {
+  const [, id] = path.split(prefix)
   return id || ''
 }
 
@@ -277,77 +333,110 @@ export default {
         return toError('Assets binding unavailable', 500)
       }
 
-      if (pathname === '/api/notebooks' && request.method === 'POST') {
+      const notebook = await getOrCreateDefaultNotebook(db)
+
+      if (pathname === '/api/trips' && request.method === 'GET') {
+        await ensureDefaultTripForExistingExpenses(db, notebook.notebookId)
+        return json({ trips: await listTrips(db, notebook.notebookId) })
+      }
+
+      if (pathname === '/api/trips/active' && request.method === 'GET') {
+        return json({ trip: await getActiveTrip(db, notebook.notebookId) })
+      }
+
+      if (pathname === '/api/trips' && request.method === 'POST') {
+        const body = await parseBody(request)
+        const existing = await getActiveTrip(db, notebook.notebookId)
+        if (existing) return json({ trip: existing })
+
+        const id = randomId()
         const now = new Date().toISOString()
-        const id = crypto.randomUUID()
-        const syncCode = randomCode()
-        await db.prepare('INSERT INTO notebooks (id, code, created_at) VALUES (?, ?, ?)').bind(id, syncCode, now).run()
-        return json({ notebookId: id, syncCode })
+        const currency = normalizeCurrency(body.currency, 'VND')
+        await db
+          .prepare(
+            `INSERT INTO trips
+             (id, notebook_id, destination, currency, status, started_at, ended_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          )
+          .bind(id, notebook.notebookId, body.destination || '', currency, 'active', now, null, now, now)
+          .run()
+        return json({ trip: await getTrip(db, id) }, 201)
       }
 
-      if (pathname === '/api/notebooks/default' && request.method === 'GET') {
-        const notebook = await getOrCreateDefaultNotebook(db)
-        return json(notebook)
+      if (pathname.startsWith('/api/trips/') && pathname.endsWith('/end') && request.method === 'POST') {
+        const tripId = pathId(pathname, '/api/trips/').replace('/end', '')
+        const now = new Date().toISOString()
+        await db.prepare('UPDATE trips SET status = ?, ended_at = ?, updated_at = ? WHERE id = ?').bind('ended', now, now, tripId).run()
+        return json({ trip: await getTrip(db, tripId) })
       }
 
-      if (pathname === '/api/notebooks' && request.method === 'GET') {
-        const code = url.searchParams.get('code')
-        if (!code) return toError('code required', 400)
-        const notebook = await getNotebook(db, null, code.toUpperCase())
-        if (!notebook) return toError('notebook not found', 404)
-        return json(notebook)
+      if (pathname.startsWith('/api/trips/') && request.method === 'PATCH') {
+        const tripId = pathId(pathname, '/api/trips/')
+        const body = await parseBody(request)
+        const existing = await getTrip(db, tripId)
+        if (!existing) return toError('trip not found', 404)
+
+        const status = body.status === 'ended' || body.status === 'active' ? body.status : existing.status
+        const now = new Date().toISOString()
+        await db
+          .prepare('UPDATE trips SET destination = ?, currency = ?, status = ?, updated_at = ? WHERE id = ?')
+          .bind(body.destination ?? existing.destination, normalizeCurrency(body.currency, existing.currency), status, now, tripId)
+          .run()
+        return json({ trip: await getTrip(db, tripId) })
       }
 
       if (pathname === '/api/expenses' && request.method === 'GET') {
-        const notebookId = url.searchParams.get('notebookId')
-        if (!notebookId) return toError('notebookId required', 400)
-        const resolved = await getNotebook(db, notebookId)
-        if (!resolved) return toError('notebook not found', 404)
-        const expenses = await listExpenses(db, resolved.notebookId)
+        const tripId = url.searchParams.get('tripId')
+        if (!tripId) return toError('tripId required', 400)
+        const trip = await getTrip(db, tripId)
+        if (!trip) return toError('trip not found', 404)
+        const expenses = await listExpenses(db, tripId)
         const total = expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0)
-        return json({ notebookId: resolved.notebookId, syncCode: resolved.syncCode, expenses, total })
+        return json({ trip, expenses, total })
       }
 
       if (pathname === '/api/notes' && request.method === 'POST') {
         const body = await parseBody(request)
-        const { notebookId, noteText } = body || {}
-        if (!notebookId || !noteText?.trim()) return toError('notebookId and noteText required', 400)
+        const { tripId, noteText } = body || {}
+        if (!tripId || !noteText?.trim()) return toError('tripId and noteText required', 400)
 
-        const resolved = await getNotebook(db, notebookId)
-        if (!resolved) return toError('notebook not found', 404)
+        const trip = await getTrip(db, tripId)
+        if (!trip) return toError('trip not found', 404)
+        if (trip.status !== 'active') return toError('trip has ended', 400)
 
-        let parsed = await parseWithAI(env, noteText)
-        if (!parsed.length) parsed = parseFallback(noteText)
-        if (!parsed.length) return toError('No expense parsed', 400)
+        let parsed = await parseWithAI(env, noteText, trip.currency)
+        if (!parsed.length) parsed = parseFallback(noteText, trip.currency)
 
         const inserted = []
         for (const item of parsed) {
-          inserted.push(await insertExpense(db, resolved.notebookId, item, noteText))
+          inserted.push(await insertExpense(db, notebook.notebookId, trip.id, item, noteText, trip.currency))
         }
         return json({ expenses: inserted }, 201)
       }
 
       if (pathname.startsWith('/api/expenses/') && request.method === 'PATCH') {
-        const id = clampExpenseId(pathname)
-        if (!id) return toError('expense id required', 400)
+        const id = pathId(pathname, '/api/expenses/')
         const body = await parseBody(request)
         const existing = await db.prepare('SELECT * FROM expenses WHERE id = ?').bind(id).first()
         if (!existing) return toError('expense not found', 404)
 
         const now = new Date().toISOString()
-        const amount = Number(body.amount)
-        const currency = body.currency || existing.currency
-        const category = body.category || existing.category
-        const merchant = body.merchant ?? existing.merchant
-        const note = body.note ?? existing.note
-        const expenseDate = body.expense_date || body.expenseDate || existing.expense_date
         await db
           .prepare(
             `UPDATE expenses
              SET amount = ?, currency = ?, category = ?, merchant = ?, note = ?, expense_date = ?, updated_at = ?
              WHERE id = ?`,
           )
-          .bind(amount, currency, category, merchant, note, expenseDate, now, id)
+          .bind(
+            Number(body.amount),
+            normalizeCurrency(body.currency, existing.currency),
+            body.category || existing.category,
+            body.merchant ?? existing.merchant,
+            body.note ?? existing.note,
+            body.expense_date || body.expenseDate || existing.expense_date,
+            now,
+            id,
+          )
           .run()
 
         const updated = await db.prepare('SELECT * FROM expenses WHERE id = ?').bind(id).first()
@@ -355,8 +444,7 @@ export default {
       }
 
       if (pathname.startsWith('/api/expenses/') && request.method === 'DELETE') {
-        const id = clampExpenseId(pathname)
-        if (!id) return toError('expense id required', 400)
+        const id = pathId(pathname, '/api/expenses/')
         await db.prepare('DELETE FROM expenses WHERE id = ?').bind(id).run()
         return json({ ok: true })
       }
