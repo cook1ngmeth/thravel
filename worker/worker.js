@@ -1193,6 +1193,23 @@ export default {
         return json({ trip: await getTrip(db, tripId) })
       }
 
+      if (pathname.startsWith('/api/trips/') && pathname.endsWith('/restore') && request.method === 'POST') {
+        const tripId = pathId(pathname, '/api/trips/').replace('/restore', '')
+        const existing = await db.prepare('SELECT * FROM trips WHERE id = ? AND notebook_id = ?').bind(tripId, notebook.notebookId).first()
+        if (!existing) return toError('trip not found', 404)
+
+        const now = new Date().toISOString()
+        await db
+          .prepare('UPDATE trips SET status = ?, ended_at = ?, updated_at = ? WHERE notebook_id = ? AND status = ? AND id != ?')
+          .bind('ended', now, now, notebook.notebookId, 'active', tripId)
+          .run()
+        await db
+          .prepare('UPDATE trips SET status = ?, ended_at = ?, updated_at = ? WHERE id = ?')
+          .bind('active', null, now, tripId)
+          .run()
+        return json({ trip: await getTrip(db, tripId) })
+      }
+
       if (pathname.startsWith('/api/trips/') && request.method === 'PATCH') {
         const tripId = pathId(pathname, '/api/trips/')
         const body = await parseBody(request)

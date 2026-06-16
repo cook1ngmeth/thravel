@@ -131,7 +131,7 @@ function App() {
       }
       await refreshTrips()
     } catch (err) {
-      setError(err.message || 'Cannot open thravel')
+      setError(err.message || 'Cannot open Our Travel')
     } finally {
       setLoading(false)
     }
@@ -201,6 +201,26 @@ function App() {
       await refreshTrips()
     } catch (err) {
       setError(err.message || 'Could not end trip')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function restoreTrip(trip = viewTrip) {
+    if (!trip?.id) return
+    setLoading(true)
+    setError('')
+    try {
+      const data = await fetchJson(`/api/trips/${trip.id}/restore`, { method: 'POST' })
+      setActiveTrip(data.trip)
+      setViewTrip(data.trip)
+      setTripDraft({ destination: data.trip.destination || '', currency: data.trip.currency || 'VND' })
+      setEditingTrip(false)
+      hydrateCache(data.trip.id)
+      await refreshExpenses(data.trip.id)
+      await refreshTrips()
+    } catch (err) {
+      setError(err.message || 'Could not resume trip')
     } finally {
       setLoading(false)
     }
@@ -359,12 +379,14 @@ function App() {
       </header>
 
       {!viewTrip ? (
-        <section className="card start-card">
-          <button className="primary" onClick={startTrip} disabled={loading}>
-            Start trip
-          </button>
-          {trips.length ? <Archive trips={trips} openTrip={openTrip} /> : null}
-        </section>
+        <>
+          <section className="card start-card">
+            <button className="primary" onClick={startTrip} disabled={loading}>
+              Start trip
+            </button>
+          </section>
+          {trips.length ? <Archive trips={trips} openTrip={openTrip} elevated /> : null}
+        </>
       ) : (
         <>
           <section className="card trip-card">
@@ -400,6 +422,8 @@ function App() {
                     <button className="quiet" onClick={() => setEditingTrip(true)}>edit</button>
                     {activeTrip?.id === viewTrip.id ? (
                       <button className="quiet danger" onClick={endTrip}>end</button>
+                    ) : viewTrip.status === 'ended' ? (
+                      <button className="quiet" onClick={() => restoreTrip(viewTrip)}>resume</button>
                     ) : null}
                   </div>
                 </>
@@ -421,7 +445,9 @@ function App() {
                 </button>
               </>
             ) : (
-              <p className="muted">This trip has ended. You can still edit the details below.</p>
+              <div className="ended-strip">
+                <span>Ended trip</span>
+              </div>
             )}
 
             {hasMixedCurrency ? (
@@ -634,16 +660,18 @@ function ExpenseRow({
   )
 }
 
-function Archive({ trips, openTrip }) {
+function Archive({ trips, openTrip, elevated = false }) {
   if (!trips.length) return null
 
   return (
-    <section className="archive">
+    <section className={elevated ? 'archive archive-card card' : 'archive'}>
       <h2>Previous trips</h2>
       {trips.map((trip) => (
         <button className="archive-row" key={trip.id} onClick={() => openTrip(trip)}>
           <span>{trip.destination || 'Untitled trip'}</span>
-          <small>{trip.currency} - {trip.status}</small>
+          <small>
+            {trip.currency} - {trip.status === 'active' ? 'active' : 'ended'}
+          </small>
         </button>
       ))}
     </section>

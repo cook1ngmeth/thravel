@@ -178,6 +178,10 @@ button:disabled {
   gap: 0.9rem;
 }
 
+.start-card {
+  padding: 1.1rem;
+}
+
 .trip-toolbar {
   display: flex;
   align-items: center;
@@ -193,6 +197,7 @@ button:disabled {
 .toolbar-actions {
   display: flex;
   flex-direction: row;
+  align-items: center;
   justify-content: flex-end;
   gap: 0.45rem;
 }
@@ -305,6 +310,21 @@ textarea {
   color: var(--muted);
   font-size: 0.78rem;
   padding: 0.3rem 0.55rem;
+}
+
+.ended-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-top: 1px solid var(--line);
+  padding-top: 0.75rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.ended-strip span {
+  font-weight: 500;
 }
 
 .list {
@@ -609,6 +629,10 @@ textarea {
   padding: 0.15rem;
 }
 
+.archive-card {
+  padding: 1rem;
+}
+
 .archive h2 {
   margin: 0.35rem 0 0.15rem;
   color: var(--muted);
@@ -621,19 +645,25 @@ textarea {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border: 1px solid transparent;
+  border: 1px solid var(--line);
+  border-radius: 12px;
   background: transparent;
   color: var(--text);
   font-weight: 500;
   letter-spacing: 0;
-  padding: 0.6rem 0.55rem;
+  padding: 0.75rem 0.8rem;
   text-align: left;
   text-transform: none;
 }
 
 .archive-row:hover {
   border-color: var(--line);
-  background: rgba(255, 255, 255, 0.55);
+  background: var(--surface-soft);
+}
+
+.archive:not(.archive-card) .archive-row {
+  border-color: transparent;
+  padding-inline: 0.55rem;
 }
 
 .archive-row small {
@@ -677,6 +707,11 @@ textarea {
 
   .trip-card {
     gap: 0.6rem;
+  }
+
+  .start-card,
+  .archive-card {
+    padding: 0.72rem;
   }
 
   .trip-toolbar {
@@ -761,6 +796,7 @@ textarea {
   .archive-row {
     align-items: flex-start;
     flex-direction: column;
+    gap: 0.12rem;
   }
 
   .trip-header {
@@ -829,6 +865,10 @@ textarea {
 
   .actions .quiet {
     min-height: 40px;
+  }
+
+  .ended-strip {
+    padding-top: 0.58rem;
   }
 }
 
