@@ -290,6 +290,42 @@ function decodeMapText(value) {
   }
 }
 
+function parseCoordinatesFromText(value) {
+  const raw = safeText(value)
+  if (!raw) return null
+
+  const regex = /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)(?!\d)/g
+  let current
+  while ((current = regex.exec(raw))) {
+    const latitude = Number(current[1])
+    const longitude = Number(current[2])
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue
+    if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) continue
+    return { latitude, longitude }
+  }
+  return null
+}
+
+function parseCoordinatesFromHtml(html) {
+  const patterns = [
+    /"lat"\s*:\s*(-?\d+(?:\.\d+)?)[,\s}]+\s*"lng"\s*:\s*(-?\d+(?:\.\d+)?)/i,
+    /"lng"\s*:\s*(-?\d+(?:\.\d+)?)[,\s}]+\s*"lat"\s*:\s*(-?\d+(?:\.\d+)?)/i,
+    /center:\s*\{\s*lat:\s*(-?\d+(?:\.\d+)?)[,\s]*lng:\s*(-?\d+(?:\.\d+)?)/i,
+    /center\s*=\s*\{\s*latitude:\s*(-?\d+(?:\.\d+)?),\s*longitude:\s*(-?\d+(?:\.\d+)?)/i,
+  ]
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern)
+    if (!match) continue
+    const latitude = Number(match[1])
+    const longitude = Number(match[2])
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue
+    if (Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) return { latitude, longitude }
+  }
+
+  return parseCoordinatesFromText(html)
+}
+
 function extractCoordinateText(value) {
   const match = String(value || '').match(/(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)\s*(?:,|$)/)
   if (!match) return null
@@ -341,10 +377,18 @@ function extractMapPlaceContext(rawUrl) {
       return context
     }
 
+    const mapsSearch = parsed.pathname.match(/\/maps\/search\/([^/?#]+)/)
+    if (mapsSearch) {
+      context.searchText = decodeMapText(mapsSearch[1]).replace(/\+/g, ' ')
+      return context
+    }
+
     const hashMatch = parsed.hash || parsed.pathname
     const hashCoords = rawTextToCoords(hashMatch)
     if (hashCoords) return { ...context, coordinates: hashCoords }
   } catch (error) {}
+  const urlCoords = parseCoordinatesFromText(rawUrl)
+  if (urlCoords) return { ...context, coordinates: urlCoords }
   return context
 }
 
@@ -515,6 +559,10 @@ async function resolveMapThumbnailFromUrl(urlText) {
 
     const context = extractMapPlaceContext(pageUrl)
     let coordinates = context?.coordinates
+    if (!coordinates) {
+      coordinates = parseCoordinatesFromHtml(html)
+      if (coordinates) context.coordinates = coordinates
+    }
     let wikiImage = null
     if (coordinates) {
       wikiImage = await fetchWikipediaLocationImage(coordinates)
