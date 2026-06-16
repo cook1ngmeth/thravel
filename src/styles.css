@@ -352,7 +352,7 @@ textarea {
 .ledger-row-edit {
   border: 1px solid var(--line);
   border-radius: 12px;
-  padding: 0.6rem;
+  padding: 0.75rem;
   background: #f9fbff;
   margin-top: 0.45rem;
 }
@@ -377,10 +377,27 @@ textarea {
 
 .ledger-row-edit .edit-inline {
   display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: minmax(0, 1.4fr) minmax(6.5rem, 1fr) minmax(5.8rem, 0.85fr) minmax(8rem, 1fr) minmax(5.5rem, 1fr) auto;
-  gap: 0.5rem;
+  grid-template-columns: minmax(0, 1.25fr) minmax(7rem, 0.8fr);
+  gap: 0.65rem;
   width: 100%;
+}
+
+.ledger-row-edit label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.ledger-row-edit label span {
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.ledger-row-edit .edit-note,
+.ledger-row-edit .actions {
+  grid-column: 1 / -1;
 }
 
 .ledger-row-edit .edit-inline .inline {
@@ -389,7 +406,8 @@ textarea {
 
 .ledger-row-edit .actions {
   flex-wrap: wrap;
-  justify-content: flex-end;
+  justify-content: flex-start;
+  padding-top: 0.1rem;
 }
 
 .ledger-row-edit .edit-inline .inline input {
@@ -402,7 +420,10 @@ textarea {
 
 .ledger-row-edit .edit-inline input,
 .ledger-row-edit .edit-inline select {
-  min-height: 38px;
+  min-height: 42px;
+  border-radius: 12px;
+  background: #fff;
+  padding: 0.65rem 0.75rem;
 }
 
 .left {
@@ -565,7 +586,7 @@ textarea {
   }
 
   .ledger-row,
-  .ledger-row-edit .edit-inline {
+  .ledger-row {
     grid-template-columns: minmax(0, 1fr) 4.8rem 6.45rem 2.9rem;
   }
 

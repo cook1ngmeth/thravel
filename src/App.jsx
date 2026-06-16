@@ -401,44 +401,59 @@ function ExpenseRow({
 
   if (editing) {
     return (
-      <div className="entry ledger-row ledger-row-edit">
+      <div className="entry ledger-row-edit">
         <div className="edit-inline">
-          <input
-            value={editDraft.note}
-            placeholder="Item"
-            onChange={(event) => setEditDraft((prev) => ({ ...prev, note: event.target.value }))}
-          />
-          <input
-            value={editDraft.merchant}
-            placeholder="Merchant"
-            onChange={(event) => setEditDraft((prev) => ({ ...prev, merchant: event.target.value }))}
-          />
-          <input
-            value={editDraft.category}
-            onChange={(event) => setEditDraft((prev) => ({ ...prev, category: event.target.value }))}
-          />
-          <input
-            value={editDraft.expense_date}
-            onChange={(event) => setEditDraft((prev) => ({ ...prev, expense_date: event.target.value }))}
-            type="date"
-          />
-          <div className="inline">
+          <label>
+            <span>Name</span>
             <input
-              value={editDraft.amount}
-              inputMode="decimal"
-              onChange={(event) => setEditDraft((prev) => ({ ...prev, amount: event.target.value }))}
+              value={editDraft.merchant}
+              placeholder="Name"
+              onChange={(event) => setEditDraft((prev) => ({ ...prev, merchant: event.target.value }))}
             />
-            <select
-              value={editDraft.currency}
-              onChange={(event) => setEditDraft((prev) => ({ ...prev, currency: event.target.value }))}
-            >
-              {CURRENCIES.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
-          </div>
+          </label>
+          <label>
+            <span>Category</span>
+            <input
+              value={editDraft.category}
+              onChange={(event) => setEditDraft((prev) => ({ ...prev, category: event.target.value }))}
+            />
+          </label>
+          <label>
+            <span>Date</span>
+            <input
+              value={editDraft.expense_date}
+              onChange={(event) => setEditDraft((prev) => ({ ...prev, expense_date: event.target.value }))}
+              type="date"
+            />
+          </label>
+          <label>
+            <span>Amount</span>
+            <div className="inline">
+              <input
+                value={editDraft.amount}
+                inputMode="decimal"
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, amount: event.target.value }))}
+              />
+              <select
+                value={editDraft.currency}
+                onChange={(event) => setEditDraft((prev) => ({ ...prev, currency: event.target.value }))}
+              >
+                {CURRENCIES.map((currency) => (
+                  <option key={currency} value={currency}>
+                    {currency}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </label>
+          <label className="edit-note">
+            <span>Note</span>
+            <input
+              value={editDraft.note}
+              placeholder="Optional"
+              onChange={(event) => setEditDraft((prev) => ({ ...prev, note: event.target.value }))}
+            />
+          </label>
           <div className="actions">
             <button className="quiet" onClick={saveEdit}>
               save
