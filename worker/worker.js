@@ -238,8 +238,8 @@ function extractJsonLdImages(html, baseUrl) {
 
   for (const candidate of candidates) {
     const normalized = normalizeImageUrl(candidate, baseUrl)
-    if (!normalized || !isImageUrlCandidate(normalized)) continue
-    return normalized
+    if (!normalized) continue
+    if (isImageUrlCandidate(normalized) || /data:image\/svg\+xml/i.test(normalized)) return normalized
   }
   return null
 }
@@ -279,8 +279,26 @@ function extractScriptImageCandidates(html, baseUrl) {
       if (candidates.length > 40) break
     }
 
-    const mapTokenRegex = /(https?:\/\/[^"'\s<>]*(?:lh3\.googleusercontent\.com|\.gstatic\.com)[^"'\s<>]*)/gi
+    const mapTokenRegex = /(https?:\/\/[^"'\s<>]*(?:lh\d*\.googleusercontent\.com|ggpht\.com|\.gstatic\.com)[^"'\s<>]*)/gi
     for (const candidate of scriptBody.matchAll(mapTokenRegex)) {
+      if (candidate?.[1]) candidates.push(candidate[1])
+      if (candidates.length > 40) break
+    }
+
+    const googleMapsImageToken = /(https?:\/\/[^"'\s<>]*googleusercontent\.com[^"'\s<>]*)/gi
+    for (const candidate of scriptBody.matchAll(googleMapsImageToken)) {
+      if (candidate?.[1]) candidates.push(candidate[1])
+      if (candidates.length > 40) break
+    }
+
+    const bgImageRegex = /background-image:\s*url\(\s*['"]?(https?:[^)'"]+)['"]?\s*\)/gi
+    for (const candidate of scriptBody.matchAll(bgImageRegex)) {
+      if (candidate?.[1]) candidates.push(candidate[1])
+      if (candidates.length > 40) break
+    }
+
+    const dataImageRegex = /(?:data-image|data-src)=["'](https?:[^"'\s<>]+)["']/gi
+    for (const candidate of scriptBody.matchAll(dataImageRegex)) {
       if (candidate?.[1]) candidates.push(candidate[1])
       if (candidates.length > 40) break
     }
@@ -341,6 +359,23 @@ function decodeMapText(value) {
 function parseCoordinatesFromText(value) {
   const raw = safeText(value)
   if (!raw) return null
+  const threeDTwoD = raw.match(/!3d(-?\d+(?:\.\d+)?)[^!]*!4d(-?\d+(?:\.\d+)?)/i)
+  if (threeDTwoD?.[1] && threeDTwoD?.[2]) {
+    const latitude = Number(threeDTwoD[1])
+    const longitude = Number(threeDTwoD[2])
+    if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+      return { latitude, longitude }
+    }
+  }
+
+  const oneDTwoD = raw.match(/!1d(-?\d+(?:\.\d+)?)[^!]*!2d(-?\d+(?:\.\d+)?)/i)
+  if (oneDTwoD?.[1] && oneDTwoD?.[2]) {
+    const latitude = Number(oneDTwoD[1])
+    const longitude = Number(oneDTwoD[2])
+    if (Number.isFinite(latitude) && Number.isFinite(longitude) && Math.abs(latitude) <= 90 && Math.abs(longitude) <= 180) {
+      return { latitude, longitude }
+    }
+  }
 
   const regex = /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)(?!\d)/g
   let current
@@ -520,7 +555,7 @@ function rawTextToCoords(rawText) {
       return { latitude, longitude }
     }
   }
-  return null
+  return parseCoordinatesFromText(value)
 }
 
 function tileCoordFromLngLat(latitude, longitude, zoom = 12) {
