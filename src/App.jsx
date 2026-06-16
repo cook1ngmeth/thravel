@@ -19,13 +19,6 @@ function formatDay(iso) {
   })
 }
 
-function formatDateTime(iso) {
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-  })
-}
-
 function byDate(list) {
   return list
     .slice()
@@ -363,9 +356,8 @@ function App() {
               <article key={date} className="day-card">
                 <h2>{formatDay(date)}</h2>
                 <div className="ledger-head">
-                  <span>Item</span>
+                  <span>Name</span>
                   <span>Category</span>
-                  <span>Date</span>
                   <span>Amount</span>
                   <span />
                 </div>
@@ -466,7 +458,6 @@ function ExpenseRow({
       <div className="ledger-category">
         <span>{expense.category || 'other'}</span>
       </div>
-      <span className="ledger-date">{formatDateTime(expense.expense_date)}</span>
       <div className="right">
         <span>{currencyFormatter(expense.amount, expense.currency)}</span>
       </div>
