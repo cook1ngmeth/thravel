@@ -75,15 +75,21 @@ function setCachedMapThumbnail(urlText, value) {
 function isImageUrlCandidate(rawUrl) {
   const value = safeText(rawUrl).toLowerCase()
   if (!value) return false
+  if (value.startsWith('data:image/svg+xml')) return true
   if (!value.startsWith('http')) return false
+  if (/\.(jpe?g|png|webp|gif|avif|bmp|svg)(?:\?|#|$)/i.test(value)) return true
   return (
     value.includes('staticmap') ||
     value.includes('maps/api/staticmap') ||
     value.includes('openstreetmap.de/staticmap') ||
     value.includes('.googleusercontent.com') ||
     value.includes('lh3.googleusercontent.com') ||
+    value.includes('ggpht.com') ||
     value.includes('gstatic.com') ||
-    /\.(jpe?g|png|webp|gif|avif|bmp)(?:\?|#|$)/i.test(value)
+    value.includes('maps.wikimedia.org') ||
+    value.includes('a.tile.openstreetmap.org') ||
+    value.includes('tile.openstreetmap.org') ||
+    value.includes('googleapis.com')
   )
 }
 
@@ -281,7 +287,7 @@ function extractScriptImageCandidates(html, baseUrl) {
     if (candidates.length > 40) break
   }
 
-  const rawImageRegex = /(https?:\/\/[^"'\\s<>]+(?:lh3\.googleusercontent\.com|\.gstatic\.com|maps\.googleapis\.com\/maps\/api\/staticmap|openstreetmap\.de\/staticmap\.php)[^"'\\s<>]*)/gi
+  const rawImageRegex = /(https?:\/\/[^"'\\s<>]+(?:lh3\.googleusercontent\.com|\.gstatic\.com|maps\.googleapis\.com\/maps\/api\/staticmap|openstreetmap\.de\/staticmap\.php|maps\.wikimedia\.org|tile\.openstreetmap\.org\/[0-9/]+\.png|ggpht\.com|googleusercontent\.com)[^"'\\s<>]*)/gi
   for (const match of html.matchAll(rawImageRegex)) {
     if (match?.[1]) candidates.push(match[1])
   }
@@ -310,15 +316,15 @@ function extractScriptImageCandidates(html, baseUrl) {
   }
 
   const allUrlRegex =
-    /["'](https?:\/\/[^"'\s<>]+(?:lh3\.googleusercontent\.com|\.gstatic\.com|maps\.googleapis\.com\/maps\/api\/staticmap|openstreetmap\.de\/staticmap\.php)[^"'\s<>]*)["']/gi
+    /["'](https?:\/\/[^"'\s<>]+(?:lh3\.googleusercontent\.com|\.gstatic\.com|maps\.googleapis\.com\/maps\/api\/staticmap|openstreetmap\.de\/staticmap\.php|maps\.wikimedia\.org|ggpht\.com|googleusercontent\.com)[^"'\s<>]*)["']/gi
   for (const match of html.matchAll(allUrlRegex)) {
     if (match?.[1]) candidates.push(match[1])
   }
 
   for (const candidate of candidates) {
     const normalized = normalizeImageUrl(unescapeHtmlText(candidate), baseUrl)
-    if (!normalized || !isImageUrlCandidate(normalized)) continue
-    return normalized
+    if (!normalized) continue
+    if (isImageUrlCandidate(normalized) || /data:image\/svg\+xml/i.test(normalized)) return normalized
   }
 
   return null
@@ -376,7 +382,6 @@ function extractTitleFromHtml(html) {
 
 async function isUsableMapImage(url) {
   if (!url) return false
-  if (!isImageUrlCandidate(url)) return false
   if (/data:image\/svg\+xml/i.test(url)) return true
   try {
     const response = await fetch(url, {
@@ -391,7 +396,7 @@ async function isUsableMapImage(url) {
     const type = response.headers.get('content-type') || ''
     return !type || type.startsWith('image/') || type.includes('application/octet-stream')
   } catch (error) {
-    return isImageUrlCandidate(url)
+    return true
   }
 }
 
@@ -608,7 +613,7 @@ function createMapFallbackImage(context) {
   ]
 
   for (const candidate of staticMapCandidates) {
-    if (isImageUrlCandidate(candidate)) return candidate
+    if (isImageUrlCandidate(candidate) || /data:image\/svg\+xml/i.test(candidate)) return candidate
   }
 
   const contextTile = tileCoordFromLngLat(latitude, longitude, 14)
