@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 
 const CURRENCIES = ['VND', 'USD', 'CAD', 'THB']
 const STORAGE_CACHE_PREFIX = 'thravel:cache:'
+const FX_RATE_CACHE_PREFIX = 'thravel:fx:'
+const FX_TTL_MS = 24 * 60 * 60 * 1000
 
 function currencyFormatter(amount, currency) {
   return new Intl.NumberFormat('en-US', {
@@ -17,6 +19,32 @@ function formatDay(iso) {
     month: 'short',
     day: 'numeric',
   })
+}
+
+function readCachedExchangeRate(currency) {
+  try {
+    const raw = localStorage.getItem(`${FX_RATE_CACHE_PREFIX}${currency}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed?.rate || !parsed?.timestamp) return null
+    if (Date.now() - parsed.timestamp > FX_TTL_MS) {
+      localStorage.removeItem(`${FX_RATE_CACHE_PREFIX}${currency}`)
+      return null
+    }
+    const rate = Number(parsed.rate)
+    return Number.isFinite(rate) ? rate : null
+  } catch (error) {
+    return null
+  }
+}
+
+function writeCachedExchangeRate(currency, rate) {
+  try {
+    localStorage.setItem(
+      `${FX_RATE_CACHE_PREFIX}${currency}`,
+      JSON.stringify({ rate, timestamp: Date.now() }),
+    )
+  } catch (error) {}
 }
 
 function byDate(list) {
@@ -281,13 +309,30 @@ function App() {
 
   async function refreshExchangeRates() {
     const needed = [...new Set(expenses.map((item) => item.currency).filter((currency) => currency && currency !== 'VND'))]
-    const missing = needed.filter((currency) => !exchangeRates[currency])
+    const fromCache = {}
+    const missing = []
+
+    needed.forEach((currency) => {
+      if (exchangeRates[currency]) return
+      const cachedRate = readCachedExchangeRate(currency)
+      if (cachedRate) {
+        fromCache[currency] = cachedRate
+      } else {
+        missing.push(currency)
+      }
+    })
+
+    if (Object.keys(fromCache).length) {
+      setExchangeRates((prev) => ({ ...prev, ...fromCache }))
+    }
+
     if (!missing.length) return
 
     try {
       const quotes = await Promise.all(
         missing.map(async (currency) => {
           const data = await fetchJson(`/api/exchange?amount=1&from=${currency}&to=VND`)
+          writeCachedExchangeRate(currency, data.quote.rate)
           return [currency, data.quote.rate]
         }),
       )
