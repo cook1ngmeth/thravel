@@ -198,6 +198,23 @@ button:disabled {
   margin-top: 0.2rem;
 }
 
+.trip-summary-trigger {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 0.75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  padding: 0.15rem 0.1rem;
+}
+
+.trip-summary-trigger:hover,
+.trip-summary-trigger:focus-visible {
+  background: var(--surface-soft);
+  outline: none;
+}
+
 .trip-title-block {
   min-width: 0;
 }
@@ -218,16 +235,15 @@ button:disabled {
 .trip-edit {
   width: 100%;
   display: grid;
-  grid-template-columns: 1fr 7rem auto auto;
+  grid-template-columns: minmax(0, 1fr) 7rem auto auto auto;
   gap: 0.5rem;
 }
 
-.currency-chip {
-  border: 1px solid var(--line);
-  border-radius: 999px;
+.trip-meta-line {
   color: var(--muted);
   font-size: 0.78rem;
-  padding: 0.34rem 0.62rem;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
 .hero-row {

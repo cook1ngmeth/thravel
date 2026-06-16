@@ -410,23 +410,34 @@ function App() {
                   </select>
                   <button className="quiet" onClick={saveTrip}>save</button>
                   <button className="quiet" onClick={() => setEditingTrip(false)}>cancel</button>
+                  {activeTrip?.id === viewTrip.id ? (
+                    <button className="quiet danger" onClick={endTrip}>end trip</button>
+                  ) : viewTrip.status === 'ended' ? (
+                    <button className="quiet" onClick={() => restoreTrip(viewTrip)}>resume trip</button>
+                  ) : null}
                 </div>
               ) : (
-                <>
+                <div
+                  className="trip-summary-trigger"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setEditingTrip(true)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setEditingTrip(true)
+                    }
+                  }}
+                  aria-label="Edit trip details"
+                >
                   <div className="trip-title-block">
                     <span className="eyebrow">destination</span>
                     <strong>{viewTrip.destination || 'Untitled trip'}</strong>
                   </div>
-                  <div className="toolbar-actions">
-                    <span className="currency-chip">{viewTrip.currency}</span>
-                    <button className="quiet" onClick={() => setEditingTrip(true)}>edit</button>
-                    {activeTrip?.id === viewTrip.id ? (
-                      <button className="quiet danger" onClick={endTrip}>end</button>
-                    ) : viewTrip.status === 'ended' ? (
-                      <button className="quiet" onClick={() => restoreTrip(viewTrip)}>resume</button>
-                    ) : null}
-                  </div>
-                </>
+                  <span className="trip-meta-line">
+                    {viewTrip.currency} · {viewTrip.status === 'active' ? 'active' : 'ended'}
+                  </span>
+                </div>
               )}
             </div>
 
