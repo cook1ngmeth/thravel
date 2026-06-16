@@ -79,6 +79,16 @@ function initialDraft(item) {
   }
 }
 
+function mapPlaceIcon(category) {
+  const value = String(category || '').toLowerCase()
+  if (value === 'food') return 'restaurant'
+  if (value === 'transport') return 'directions_transit'
+  if (value === 'lodging') return 'hotel'
+  if (value === 'activities') return 'account_balance'
+  if (value === 'shopping') return 'local_mall'
+  return 'storefront'
+}
+
 function App() {
   const [activeTrip, setActiveTrip] = useState(null)
   const [viewTrip, setViewTrip] = useState(null)
@@ -633,7 +643,9 @@ function ExpenseRow({
             }}
             aria-label={expense.merchant ? `Open ${expense.merchant} on maps` : 'Open map'}
           >
-            <span className="pin-mark pin-mark-linked" aria-hidden="true" />
+            <span className="material-symbols-rounded place-icon" aria-hidden="true">
+              {mapPlaceIcon(expense.category)}
+            </span>
           </a>
         ) : (
           <span className="thumb-wrap thumb-wrap-empty">

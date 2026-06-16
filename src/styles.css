@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:FILL@1&display=block');
 
 :root {
   --bg: #f3f5fb;
@@ -506,26 +507,25 @@ textarea {
   background: #d7263d;
 }
 
-.pin-mark-linked {
-  background: #d7263d;
-  border-color: #d7263d;
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 1.35rem;
+  line-height: 1;
+  letter-spacing: 0;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: 'liga';
 }
 
-.pin-mark-linked::after {
-  background: #fff;
-}
-
-.pin-mark-linked::before {
-  position: absolute;
-  content: '';
-  right: -6px;
-  top: -5px;
-  width: 8px;
-  height: 8px;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: #d7263d;
-  box-shadow: 0 0 0 1px rgba(215, 38, 61, 0.22);
+.place-icon {
+  color: #d7263d;
 }
 
 .ledger-row-edit .edit-inline {
