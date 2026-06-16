@@ -601,6 +601,47 @@ async function fetchWikipediaLocationImage(context) {
   return null
 }
 
+async function fetchWikimediaNearbyImage(context) {
+  const latitude = Number(context?.latitude)
+  const longitude = Number(context?.longitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+
+  try {
+    const response = await fetch(
+      `https://commons.wikimedia.org/w/api.php?action=query&format=json&formatversion=2&generator=geosearch&ggscoord=${encodeURIComponent(
+        `${latitude}|${longitude}`,
+      )}&ggsradius=5000&ggslimit=10&prop=imageinfo&iiprop=url|mime&iiurlwidth=600`,
+      {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (compatible; thravel/1.0)',
+          accept: 'application/json',
+        },
+      },
+    )
+    if (!response.ok) return null
+    const payload = await response.json()
+    const pages = payload?.query?.pages || []
+    for (const page of pages) {
+      const image = page?.imageinfo?.[0]
+      const candidate = image?.thumburl || image?.url
+      if (!candidate || !candidate.startsWith('https://')) continue
+      if (image?.mime && !String(image.mime).startsWith('image/')) continue
+      return candidate
+    }
+  } catch (error) {}
+  return null
+}
+
+async function fetchNearbyPublicImage(context) {
+  let image = await fetchWikipediaLocationImage(context)
+  if (image && (await isUsableMapImage(image))) return image
+
+  image = await fetchWikimediaNearbyImage(context)
+  if (image && (await isUsableMapImage(image))) return image
+
+  return null
+}
+
 async function geocodeSearchText(searchText) {
   if (!searchText) return null
   const cacheKey = `geocode:${searchText}`
@@ -673,25 +714,53 @@ async function resolveMapUrl(rawUrl) {
   }
 }
 
-async function resolveMapThumbnailFromUrl(urlText) {
+async function resolveMapThumbnailFromUrl(urlText, hintText = '') {
   if (!isGoogleMapsUrl(urlText)) return null
 
   const cached = getCachedMapThumbnail(urlText)
   if (cached !== null) return cached
 
-  const fallbackContext = {
+  const mapContext = {
     coordinates: null,
     searchText: null,
   }
+  if (hintText) {
+    mapContext.searchText = String(hintText).trim()
+  }
+
+  const rememberContext = (context, source) => {
+    if (!context) return
+    if (context.coordinates) mapContext.coordinates = mapContext.coordinates || context.coordinates
+    if (!mapContext.searchText && context.searchText) mapContext.searchText = context.searchText
+    if (!mapContext.searchText && source) mapContext.searchText = source
+  }
+
   const normalizeResolvedUrl = (value, source) => {
     if (!value) return
-    const parsed = extractMapPlaceContext(value)
-    if (parsed.coordinates) fallbackContext.coordinates = fallbackContext.coordinates || parsed.coordinates
-    if (!fallbackContext.searchText && parsed.searchText) fallbackContext.searchText = parsed.searchText
-    if (!fallbackContext.searchText && source) fallbackContext.searchText = source
+    rememberContext(extractMapPlaceContext(value), source)
+  }
+
+  const resolveFromContext = async () => {
+    let coordinates = mapContext.coordinates
+    if (!coordinates && mapContext.searchText) {
+      coordinates = await geocodeSearchText(mapContext.searchText)
+      if (coordinates) mapContext.coordinates = coordinates
+    }
+
+    if (coordinates) {
+      const publicImage = await fetchNearbyPublicImage(coordinates)
+      if (publicImage) return publicImage
+    }
+
+    return createMapFallbackImage(
+      coordinates
+        ? { ...coordinates, searchText: mapContext.searchText }
+        : { searchText: mapContext.searchText },
+    )
   }
 
   try {
+    normalizeResolvedUrl(urlText)
     const resolvedUrl = await resolveMapUrl(urlText)
     normalizeResolvedUrl(resolvedUrl)
     const response = await fetch(resolvedUrl, {
@@ -725,64 +794,17 @@ async function resolveMapThumbnailFromUrl(urlText) {
       return scriptImage
     }
 
-    const context = extractMapPlaceContext(pageUrl)
-    let coordinates = context?.coordinates
-    if (!coordinates) {
-      coordinates = parseCoordinatesFromHtml(html)
-      if (coordinates) context.coordinates = coordinates
-    }
-    if (!context.searchText) {
-      context.searchText = extractTitleFromHtml(html)
-    }
-    let wikiImage = null
-    if (coordinates) {
-      wikiImage = await fetchWikipediaLocationImage(coordinates)
-      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
-      if (wikiImage) {
-        setCachedMapThumbnail(urlText, wikiImage)
-        return wikiImage
-      }
-    }
-    if (!coordinates && context?.searchText) {
-      coordinates = await geocodeSearchText(context.searchText)
-    }
-    if (coordinates) {
-      wikiImage = await fetchWikipediaLocationImage(coordinates)
-      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
-      if (wikiImage) {
-        setCachedMapThumbnail(urlText, wikiImage)
-        return wikiImage
-      }
-    }
+    const htmlCoordinates = parseCoordinatesFromHtml(html)
+    if (htmlCoordinates) rememberContext({ coordinates: htmlCoordinates })
+    const htmlTitle = extractTitleFromHtml(html)
+    if (htmlTitle) rememberContext({ searchText: htmlTitle })
 
-    const fallback = createMapFallbackImage(coordinates ? { ...coordinates, searchText: context?.searchText } : { searchText: context?.searchText })
+    const fallback = await resolveFromContext()
     setCachedMapThumbnail(urlText, fallback)
     return fallback
   } catch (error) {
     normalizeResolvedUrl(urlText)
-    const context = fallbackContext
-    let coordinates = context?.coordinates
-    let wikiImage = null
-    if (coordinates) {
-      wikiImage = await fetchWikipediaLocationImage(coordinates)
-      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
-    }
-    if (wikiImage) {
-      setCachedMapThumbnail(urlText, wikiImage)
-      return wikiImage
-    }
-    if (!coordinates && context?.searchText) {
-      coordinates = await geocodeSearchText(context.searchText)
-    }
-    if (coordinates) {
-      wikiImage = await fetchWikipediaLocationImage(coordinates)
-      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
-      if (wikiImage) {
-        setCachedMapThumbnail(urlText, wikiImage)
-        return wikiImage
-      }
-    }
-    const fallback = createMapFallbackImage(coordinates ? { ...coordinates, searchText: context?.searchText } : { searchText: context?.searchText })
+    const fallback = await resolveFromContext()
     setCachedMapThumbnail(urlText, fallback)
     return fallback
   }
@@ -1227,7 +1249,8 @@ export default {
           if (!nextMapUrl) {
             nextThumbnail = null
           } else if (isGoogleMapsUrl(nextMapUrl)) {
-            nextThumbnail = await resolveMapThumbnailFromUrl(nextMapUrl)
+            const hintText = `${body.merchant ?? existing.merchant ?? ''} ${body.note ?? existing.note ?? ''}`.trim()
+            nextThumbnail = await resolveMapThumbnailFromUrl(nextMapUrl, hintText)
           } else {
             nextThumbnail = null
           }

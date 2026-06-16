@@ -5,31 +5,6 @@ const STORAGE_CACHE_PREFIX = 'thravel:cache:'
 const FX_RATE_CACHE_PREFIX = 'thravel:fx:'
 const FX_TTL_MS = 24 * 60 * 60 * 1000
 
-function mapFallbackThumb(labelText = 'Travel Location') {
-  const label = (labelText || 'Travel Location').slice(0, 32)
-  const safeLabel = label
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;')
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="360" height="240" viewBox="0 0 360 240">
-  <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0%" stop-color="#eef2fb"/>
-      <stop offset="100%" stop-color="#dde5f5"/>
-    </linearGradient>
-  </defs>
-  <rect width="360" height="240" rx="16" fill="url(#bg)"/>
-  <circle cx="180" cy="110" r="56" fill="#365cd8" opacity="0.2"/>
-  <path d="M180 60 C136 60 100 96 100 140 C100 193 180 224 180 224 C180 224 260 193 260 140 C260 96 224 60 180 60 Z" fill="#365cd8" opacity="0.2"/>
-  <circle cx="180" cy="138" r="24" fill="#ffffff" stroke="#365cd8" stroke-width="3"/>
-  <text x="180" y="206" text-anchor="middle" font-size="22" font-family="Arial, Helvetica, sans-serif" font-weight="700" fill="#2f4f9e">${safeLabel}</text>
-</svg>`
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
-}
-
 function currencyFormatter(amount, currency) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
@@ -512,7 +487,7 @@ function ExpenseRow({
   const vndRate = expense.currency === 'VND' ? null : exchangeRates[expense.currency]
   const hasMapUrl = Boolean(expense.google_map_url)
   const showThumbnail = Boolean(expense.thumbnail_url) && !thumbnailFailed
-  const placeholderImage = mapFallbackThumb(name)
+  const mapUrl = expense.google_map_url || ''
 
   if (editing) {
     return (
@@ -607,55 +582,53 @@ function ExpenseRow({
       }}
       aria-label={`Edit ${name}`}
     >
+      <div className="left-track">
         {hasMapUrl ? (
           <a
             className="thumb-wrap"
-            href={expense.google_map_url}
+            href={mapUrl}
             target="_blank"
             rel="noopener noreferrer"
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-              event.stopPropagation()
-            }
-          }}
-          aria-label={expense.merchant ? `Open ${expense.merchant} on maps` : 'Open map'}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.stopPropagation()
+              }
+            }}
+            aria-label={expense.merchant ? `Open ${expense.merchant} on maps` : 'Open map'}
           >
-          {showThumbnail ? (
-            <img
-              src={expense.thumbnail_url}
-              alt="Map"
-              loading="lazy"
-              onError={() => setThumbnailFailed(true)}
-            />
-          ) : (
-            <img
-              src={placeholderImage}
-              alt="Map placeholder"
-              loading="lazy"
-            />
-          )}
-        </a>
-      ) : (
-        <span className="thumb-wrap">
-          <img
-            src={placeholderImage}
-            alt="Map placeholder"
-            loading="lazy"
-          />
-        </span>
-      )}
+            {showThumbnail ? (
+              <img
+                src={expense.thumbnail_url}
+                alt="Map"
+                loading="lazy"
+                onError={() => setThumbnailFailed(true)}
+              />
+            ) : (
+              <span className="pin-mark" aria-hidden="true" />
+            )}
+          </a>
+        ) : (
+          <span className="thumb-wrap thumb-wrap-empty">
+            <span className="pin-mark" aria-hidden="true" />
+          </span>
+        )}
+      </div>
 
       <div className="left-row-content">
         <span className="merchant">{name}</span>
         <span className="ledger-category row-category">{expense.category || 'other'}</span>
         {showNote ? <span className="muted">{expense.note}</span> : null}
       </div>
+
       <div className="right">
         <span>{currencyFormatter(expense.amount, expense.currency)}</span>
         {vndRate ? (
           <small>{currencyFormatter(Number(expense.amount || 0) * vndRate, 'VND')}</small>
         ) : null}
+        <span className="edit-indicator" aria-hidden="true">
+          &rsaquo;
+        </span>
       </div>
     </div>
   )

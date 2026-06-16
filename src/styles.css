@@ -329,7 +329,7 @@ textarea {
 
 .ledger-head {
   display: grid;
-  grid-template-columns: 2.8rem minmax(0, 1fr) 9rem;
+  grid-template-columns: 3.1rem minmax(0, 1fr) 11rem;
   gap: 0.75rem;
   padding: 0 0.05rem 0.35rem;
   border-bottom: 1px solid var(--line);
@@ -356,12 +356,12 @@ textarea {
 .ledger-row {
   width: 100%;
   display: grid;
-  grid-template-columns: 2.8rem minmax(0, 1fr) 9rem;
+  grid-template-columns: 3.1rem minmax(0, 1fr) 9rem;
   gap: 0.75rem;
   align-items: center;
   background: transparent;
   border: 0;
-  min-height: 72px;
+  min-height: 80px;
 }
 
 .row-open-trigger {
@@ -415,6 +415,34 @@ textarea {
   color: var(--muted);
   font-size: 0.72rem;
   font-variant-numeric: tabular-nums;
+}
+
+.left-track {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.thumb-wrap-empty {
+  background: #f7f9fd;
+  border-style: solid;
+}
+
+.pin-mark {
+  position: relative;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #7e8ca8;
+  border-radius: 50% 50% 50% 0;
+  transform: rotate(-45deg);
+}
+
+.pin-mark::after {
+  position: absolute;
+  content: '';
+  inset: 4px;
+  border-radius: 50%;
+  background: #7e8ca8;
 }
 
 .ledger-row-edit .edit-inline {
@@ -531,6 +559,15 @@ textarea {
   flex-direction: column;
   gap: 0.4rem;
   flex-shrink: 0;
+  align-items: flex-end;
+}
+
+.edit-indicator {
+  margin-top: 0.2rem;
+  font-size: 1rem;
+  color: #9ca9c4;
+  line-height: 1;
+  opacity: 0.85;
 }
 
 .edit-inline {
@@ -605,13 +642,92 @@ textarea {
 }
 
 @media (max-width: 640px) {
+  #root {
+    padding: 0.55rem 0.55rem 1rem;
+  }
+
+  .app-shell {
+    gap: 0.55rem;
+  }
+
+  .top h1 {
+    font-size: 1.72rem;
+    line-height: 1;
+  }
+
+  .top p {
+    margin-top: 0.2rem;
+    font-size: 0.92rem;
+  }
+
+  .trip-header {
+    padding: 0.2rem 0.1rem 0;
+    gap: 0.45rem;
+  }
+
+  .header-total strong {
+    font-size: 1.08rem;
+  }
+
+  .card {
+    border-radius: 12px;
+    padding: 0.72rem;
+    box-shadow: 0 8px 18px rgba(22, 32, 51, 0.045);
+  }
+
+  .trip-card {
+    gap: 0.6rem;
+  }
+
+  .trip-toolbar {
+    gap: 0.45rem;
+  }
+
+  .toolbar-actions {
+    align-items: center;
+    gap: 0.35rem;
+  }
+
+  .field span,
+  .eyebrow {
+    font-size: 0.68rem;
+    letter-spacing: 0.08em;
+  }
+
+  textarea {
+    min-height: 86px;
+    padding: 0.72rem 0.8rem;
+    border-radius: 12px;
+    line-height: 1.45;
+  }
+
+  button {
+    border-radius: 12px;
+  }
+
+  .primary {
+    min-height: 48px;
+    padding: 0.72rem 0.9rem;
+  }
+
+  .day-card {
+    border-radius: 12px;
+    padding: 0.55rem 0.45rem;
+  }
+
+  .day-card h2 {
+    margin: 0 0 0.2rem 0.25rem;
+    font-size: 0.78rem;
+  }
+
   .hero-row {
     grid-template-columns: 1fr;
   }
 
   .row-open-trigger {
-    min-height: 80px;
-    padding: 0.75rem 0.35rem;
+    min-height: 72px;
+    padding: 0.58rem 0.38rem;
+    border-radius: 12px;
   }
 
   .ledger-head {
@@ -619,16 +735,22 @@ textarea {
   }
 
   .ledger-row {
-    grid-template-columns: 48px 1fr;
-    gap: 0.7rem;
-    align-items: flex-start;
-    padding: 0.7rem 0.3rem;
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 0.55rem;
+    align-items: center;
+    padding: 0.55rem 0.35rem;
   }
 
   .ledger-row .right {
-    grid-column: 2;
     align-items: flex-end;
     text-align: right;
+    justify-content: flex-end;
+    gap: 0.16rem;
+    min-width: 72px;
+  }
+
+  .ledger-row .left-row-content {
+    padding-right: 0.35rem;
   }
 
   .total-tile {
@@ -637,10 +759,14 @@ textarea {
   }
 
   .trip-header,
-  .trip-toolbar,
   .archive-row {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .trip-toolbar {
+    align-items: center;
+    flex-direction: row;
   }
 
   .header-total {
@@ -656,7 +782,7 @@ textarea {
   }
 
   .row-open-trigger {
-    border-radius: 10px;
+    border-radius: 11px;
   }
 
   .ledger-row-edit .edit-inline {
@@ -670,14 +796,24 @@ textarea {
   }
 
   .right span {
-    font-size: 0.94rem;
+    font-size: 0.88rem;
   }
 
   .thumb-wrap {
-    width: 48px;
-    height: 48px;
-    border-radius: 12px;
-    flex: 0 0 48px;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    flex: 0 0 40px;
+  }
+
+  .left-track {
+    padding-top: 0.05rem;
+  }
+
+  .edit-indicator {
+    font-size: 1rem;
+    margin-top: 0;
+    color: #70809e;
   }
 
   .actions {
@@ -693,18 +829,17 @@ textarea {
 
 @media (max-width: 480px) {
   #root {
-    padding: 0.75rem 0.7rem 1.2rem;
+    padding: 0.55rem 0.5rem 1rem;
   }
 
-  .trip-header,
-  .trip-toolbar {
+  .trip-header {
     align-items: flex-start;
     flex-direction: column;
-    gap: 0.55rem;
+    gap: 0.35rem;
   }
 
   .trip-toolbar {
-    margin-top: 0.2rem;
+    margin-top: 0;
   }
 
   .archive h2 {
