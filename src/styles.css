@@ -322,14 +322,18 @@ textarea {
 
 .ledger-head {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(5.5rem, 0.85fr) minmax(7rem, 0.9fr) auto;
-  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr) 7.25rem 8.5rem 3.2rem;
+  gap: 0.75rem;
   padding: 0 0.05rem 0.35rem;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
   font-size: 0.73rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.ledger-head span:nth-child(3) {
+  text-align: right;
 }
 
 .entry {
@@ -340,8 +344,8 @@ textarea {
 
 .ledger-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.7fr) minmax(5.5rem, 0.85fr) minmax(7rem, 0.9fr) auto;
-  gap: 0.6rem;
+  grid-template-columns: minmax(0, 1fr) 7.25rem 8.5rem 3.2rem;
+  gap: 0.75rem;
   align-items: center;
 }
 
@@ -357,6 +361,7 @@ textarea {
   color: var(--muted);
   font-size: 0.84rem;
   text-transform: lowercase;
+  justify-self: start;
 }
 
 .right {
@@ -433,10 +438,10 @@ textarea {
   display: flex;
   flex-direction: row;
   justify-content: flex-end;
-  gap: 0.25rem;
-  width: 82px;
+  gap: 0.2rem;
+  width: 3.2rem;
   justify-self: end;
-  opacity: 0.36;
+  opacity: 0.82;
   transition: opacity 160ms ease;
 }
 
@@ -447,10 +452,12 @@ textarea {
 
 .row-actions button {
   width: auto;
-  border-color: transparent;
-  color: #8790a0;
-  font-size: 0.68rem;
-  padding: 0.1rem 0.28rem;
+  border-color: #e4e9f2;
+  border-radius: 999px;
+  color: #5f6b7d;
+  font-size: 0.72rem;
+  padding: 0.14rem 0.46rem;
+  background: rgba(248, 250, 253, 0.85);
 }
 
 .edit-inline {
@@ -552,14 +559,14 @@ textarea {
   }
 
   .ledger-head {
-    grid-template-columns: minmax(0, 1.55fr) minmax(4.8rem, 0.8fr) minmax(6.3rem, 0.9fr) auto;
+    grid-template-columns: minmax(0, 1fr) 4.8rem 6.45rem 2.9rem;
     font-size: 0.65rem;
-    gap: 0.35rem;
+    gap: 0.4rem;
   }
 
   .ledger-row,
   .ledger-row-edit .edit-inline {
-    grid-template-columns: minmax(0, 1.55fr) minmax(4.8rem, 0.8fr) minmax(6.3rem, 0.9fr) auto;
+    grid-template-columns: minmax(0, 1fr) 4.8rem 6.45rem 2.9rem;
   }
 
   .ledger-row-edit .edit-inline {
@@ -577,12 +584,12 @@ textarea {
 
   .row-actions {
     width: auto;
-    gap: 0.12rem;
-    opacity: 0.42;
+    gap: 0;
+    opacity: 0.9;
   }
 
   .row-actions button {
     font-size: 0.66rem;
-    padding: 0.12rem 0.22rem;
+    padding: 0.12rem 0.34rem;
   }
 }

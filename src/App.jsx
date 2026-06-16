@@ -443,6 +443,9 @@ function ExpenseRow({
             <button className="quiet" onClick={cancelEdit}>
               cancel
             </button>
+            <button className="quiet danger" onClick={() => removeExpense(expense.id)}>
+              remove
+            </button>
           </div>
         </div>
       </div>
@@ -464,9 +467,6 @@ function ExpenseRow({
       <div className="row-actions">
         <button className="quiet" onClick={() => startEdit(expense)}>
           edit
-        </button>
-        <button className="quiet" onClick={() => removeExpense(expense.id)}>
-          remove
         </button>
       </div>
     </div>
