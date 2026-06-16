@@ -203,25 +203,26 @@ function App() {
     <main className="app-shell">
       <header className="top">
         <h1>thravel</h1>
-        <p>Travel expense capture</p>
+        <p>Keep your trip spending in one simple place</p>
       </header>
 
       <section className="card unified-card">
         <div className="hero-row">
           <div className="hero-copy">
-            <span className="eyebrow">sync code</span>
+            <span className="eyebrow">your trip code</span>
             <strong>{notebook ? notebook.syncCode : '...'}</strong>
+            <p className="support-copy">Use this on another device to open the same trip.</p>
           </div>
           <div className="total-tile">
-            <span className="eyebrow">today / trip</span>
+            <span className="eyebrow">trip total</span>
             <strong>{currencyFormatter(total, 'THB')}</strong>
           </div>
         </div>
 
         <label className="field">
-          <span>paste note</span>
+          <span>add a note</span>
           <textarea
-            placeholder="coffee 80 baht, taxi 220, hotel 1200"
+            placeholder="Coffee 80 baht, taxi 220, hotel 1200"
             value={note}
             onChange={(event) => setNote(event.target.value)}
           />
@@ -229,17 +230,17 @@ function App() {
 
         <div className="stack-actions">
           <button className="primary" onClick={saveNote} disabled={loading}>
-            add expense
+            save note
           </button>
           <div className="join-row">
             <input
               value={joinCode}
               onChange={(event) => setJoinCode(event.target.value)}
-              placeholder="join with sync code"
-              aria-label="join sync code"
+              placeholder="Open an existing trip with a trip code"
+              aria-label="Trip code"
             />
             <button className="secondary" onClick={joinNotebook} disabled={loading || !joinCode}>
-              join
+              open trip
             </button>
           </div>
         </div>
@@ -306,7 +307,7 @@ function App() {
             ))}
           </article>
         ))}
-        {expenses.length === 0 ? <p className="muted">no captures yet</p> : null}
+        {expenses.length === 0 ? <p className="muted">No expenses yet. Add your first note above.</p> : null}
       </section>
     </main>
   )

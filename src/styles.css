@@ -158,6 +158,13 @@ button:disabled {
   font-weight: 700;
 }
 
+.support-copy {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.86rem;
+  line-height: 1.4;
+}
+
 .total-tile {
   min-width: 11rem;
   text-align: right;
@@ -194,7 +201,7 @@ textarea {
 
 .secondary {
   width: auto;
-  min-width: 6rem;
+  min-width: 8.5rem;
   background: var(--primary-soft);
   color: var(--primary);
   border-color: var(--line);
