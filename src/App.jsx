@@ -19,6 +19,13 @@ function formatDay(iso) {
   })
 }
 
+function formatDateTime(iso) {
+  return new Date(iso).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 function byDate(list) {
   return list
     .slice()
@@ -355,6 +362,13 @@ function App() {
             {Object.entries(grouped).map(([date, rows]) => (
               <article key={date} className="day-card">
                 <h2>{formatDay(date)}</h2>
+                <div className="ledger-head">
+                  <span>Item</span>
+                  <span>Category</span>
+                  <span>Date</span>
+                  <span>Amount</span>
+                  <span />
+                </div>
                 {rows.map((expense) => (
                   <ExpenseRow
                     key={expense.id}
@@ -392,17 +406,26 @@ function ExpenseRow({
 }) {
   if (editing) {
     return (
-      <div className="entry">
+      <div className="entry ledger-row ledger-row-edit">
         <div className="edit-inline">
           <input
             value={editDraft.note}
-            placeholder="Note"
+            placeholder="Item"
             onChange={(event) => setEditDraft((prev) => ({ ...prev, note: event.target.value }))}
           />
           <input
             value={editDraft.merchant}
-            placeholder="Name"
+            placeholder="Merchant"
             onChange={(event) => setEditDraft((prev) => ({ ...prev, merchant: event.target.value }))}
+          />
+          <input
+            value={editDraft.category}
+            onChange={(event) => setEditDraft((prev) => ({ ...prev, category: event.target.value }))}
+          />
+          <input
+            value={editDraft.expense_date}
+            onChange={(event) => setEditDraft((prev) => ({ ...prev, expense_date: event.target.value }))}
+            type="date"
           />
           <div className="inline">
             <input
@@ -421,20 +444,13 @@ function ExpenseRow({
               ))}
             </select>
           </div>
-          <div className="inline">
-            <input
-              value={editDraft.category}
-              onChange={(event) => setEditDraft((prev) => ({ ...prev, category: event.target.value }))}
-            />
-            <input
-              value={editDraft.expense_date}
-              onChange={(event) => setEditDraft((prev) => ({ ...prev, expense_date: event.target.value }))}
-              type="date"
-            />
-          </div>
           <div className="actions">
-            <button className="quiet" onClick={saveEdit}>save</button>
-            <button className="quiet" onClick={cancelEdit}>cancel</button>
+            <button className="quiet" onClick={saveEdit}>
+              save
+            </button>
+            <button className="quiet" onClick={cancelEdit}>
+              cancel
+            </button>
           </div>
         </div>
       </div>
@@ -442,17 +458,25 @@ function ExpenseRow({
   }
 
   return (
-    <div className="entry">
+    <div className="entry ledger-row">
       <div className="left">
         <span className="merchant">{expense.merchant || expense.note || 'expense'}</span>
-        <span className="muted">{expense.category || 'other'}</span>
+        <span className="muted">{expense.note || 'manual entry'}</span>
       </div>
+      <div className="ledger-category">
+        <span>{expense.category || 'other'}</span>
+      </div>
+      <span className="ledger-date">{formatDateTime(expense.expense_date)}</span>
       <div className="right">
         <span>{currencyFormatter(expense.amount, expense.currency)}</span>
-        <div className="row-actions">
-          <button className="quiet" onClick={() => startEdit(expense)}>edit</button>
-          <button className="quiet" onClick={() => removeExpense(expense.id)}>remove</button>
-        </div>
+      </div>
+      <div className="row-actions">
+        <button className="quiet" onClick={() => startEdit(expense)}>
+          edit
+        </button>
+        <button className="quiet" onClick={() => removeExpense(expense.id)}>
+          remove
+        </button>
       </div>
     </div>
   )
@@ -467,7 +491,7 @@ function Archive({ trips, openTrip }) {
       {trips.map((trip) => (
         <button className="archive-row" key={trip.id} onClick={() => openTrip(trip)}>
           <span>{trip.destination || 'Untitled trip'}</span>
-          <small>{trip.currency} · {trip.status}</small>
+          <small>{trip.currency} - {trip.status}</small>
         </button>
       ))}
     </section>
