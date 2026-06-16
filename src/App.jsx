@@ -519,12 +519,10 @@ function ExpenseRow({
   removeExpense,
   exchangeRates,
 }) {
-  const [thumbnailFailed, setThumbnailFailed] = useState(false)
   const name = expense.merchant || expense.note || 'expense'
   const showNote = expense.note && expense.note !== name
   const vndRate = expense.currency === 'VND' ? null : exchangeRates[expense.currency]
   const hasMapUrl = Boolean(expense.google_map_url)
-  const showThumbnail = Boolean(expense.thumbnail_url) && !thumbnailFailed
   const mapUrl = expense.google_map_url || ''
 
   if (editing) {
@@ -635,16 +633,7 @@ function ExpenseRow({
             }}
             aria-label={expense.merchant ? `Open ${expense.merchant} on maps` : 'Open map'}
           >
-            {showThumbnail ? (
-              <img
-                src={expense.thumbnail_url}
-                alt="Map"
-                loading="lazy"
-                onError={() => setThumbnailFailed(true)}
-              />
-            ) : (
-              <span className="pin-mark" aria-hidden="true" />
-            )}
+            <span className="pin-mark pin-mark-linked" aria-hidden="true" />
           </a>
         ) : (
           <span className="thumb-wrap thumb-wrap-empty">

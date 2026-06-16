@@ -485,7 +485,7 @@ textarea {
 }
 
 .thumb-wrap-empty {
-  background: #f7f9fd;
+  background: #fff7f7;
   border-style: solid;
 }
 
@@ -493,7 +493,7 @@ textarea {
   position: relative;
   width: 16px;
   height: 16px;
-  border: 2px solid #7e8ca8;
+  border: 2px solid #d7263d;
   border-radius: 50% 50% 50% 0;
   transform: rotate(-45deg);
 }
@@ -503,7 +503,29 @@ textarea {
   content: '';
   inset: 4px;
   border-radius: 50%;
-  background: #7e8ca8;
+  background: #d7263d;
+}
+
+.pin-mark-linked {
+  background: #d7263d;
+  border-color: #d7263d;
+}
+
+.pin-mark-linked::after {
+  background: #fff;
+}
+
+.pin-mark-linked::before {
+  position: absolute;
+  content: '';
+  right: -6px;
+  top: -5px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #d7263d;
+  box-shadow: 0 0 0 1px rgba(215, 38, 61, 0.22);
 }
 
 .ledger-row-edit .edit-inline {
@@ -578,24 +600,13 @@ textarea {
   height: 46px;
   border-radius: 10px;
   border: 1px solid var(--line);
-  background: var(--surface-soft);
+  background: #fff7f7;
   overflow: hidden;
   flex: 0 0 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   font-size: 1.05rem;
-}
-
-.thumb-wrap img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.thumb-wrap .thumb-icon {
-  color: var(--muted);
-  opacity: 0.9;
 }
 
 .left .muted {
