@@ -3,6 +3,8 @@ const CURRENCIES = ['VND', 'USD', 'CAD', 'THB']
 const DEFAULT_NOTEBOOK_CODE = 'SHAREDTRIP'
 const EXCHANGE_CACHE_SECONDS = 60 * 60 * 24
 const exchangeCache = new Map()
+const MAP_THUMBNAIL_CACHE_SECONDS = 60 * 60 * 24
+const mapThumbnailCache = new Map()
 const GOOGLE_MAP_HOSTS = ['maps.google.com', 'google.com', 'www.google.com', 'maps.app.goo.gl', 'goo.gl', 'g.co']
 
 const CURRENCY_WORDS = {
@@ -38,6 +40,43 @@ function safeText(value) {
   return String(value).trim()
 }
 
+function getCachedMapThumbnail(urlText) {
+  const key = safeText(urlText)
+  if (!key) return null
+  const cached = mapThumbnailCache.get(key)
+  if (!cached) return null
+  if (Date.now() - cached.timestamp > MAP_THUMBNAIL_CACHE_SECONDS * 1000) {
+    mapThumbnailCache.delete(key)
+    return null
+  }
+  return cached.value
+}
+
+function setCachedMapThumbnail(urlText, value) {
+  const key = safeText(urlText)
+  if (!key) return
+  mapThumbnailCache.set(key, {
+    value,
+    timestamp: Date.now(),
+  })
+  if (mapThumbnailCache.size > 240) {
+    const oldest = mapThumbnailCache.keys().next().value
+    if (oldest) mapThumbnailCache.delete(oldest)
+  }
+}
+
+function isImageUrlCandidate(rawUrl) {
+  const value = safeText(rawUrl).toLowerCase()
+  if (!value) return false
+  if (!value.startsWith('http')) return false
+  return (
+    value.includes('.googleusercontent.com') ||
+    value.includes('lh3.googleusercontent.com') ||
+    value.includes('gstatic.com') ||
+    /\.(jpe?g|png|webp|gif|avif|bmp)(?:\?|#|$)/i.test(value)
+  )
+}
+
 function isGoogleMapsUrl(urlText) {
   try {
     const value = safeText(urlText)
@@ -68,79 +107,296 @@ function normalizeImageUrl(rawUrl, baseUrl) {
 }
 
 function extractMetaImage(html, baseUrl) {
-  const tags = ['og:image:secure_url', 'og:image', 'twitter:image', 'twitter:image:src']
-  for (const tag of tags) {
-    const regex = new RegExp(`<meta[^>]+(?:property|name)=["']${tag}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i')
-    const match = html.match(regex)
-    const candidate = match?.[1]
-    const normalized = normalizeImageUrl(candidate, baseUrl)
-    if (normalized) return normalized
+  const tags = new Set(['og:image:secure_url', 'og:image', 'twitter:image', 'twitter:image:src', 'twitter:image:secure_url', 'image'])
+  const metaRegex = /<meta[^>]+(?:property|name)=["']([^"']+)["'][^>]+content=["']([^"']+)["'][^>]*>/gi
+  for (const match of html.matchAll(metaRegex)) {
+    const tag = String(match[1] || '').toLowerCase()
+    if (!tags.has(tag)) continue
+    const normalized = normalizeImageUrl(match[2], baseUrl)
+    if (normalized && isImageUrlCandidate(normalized)) return normalized
   }
+
+  const linkRegex = /<link[^>]+rel=["']([^"']+)["'][^>]+href=["']([^"']+)["'][^>]*>/gi
+  for (const match of html.matchAll(linkRegex)) {
+    const rel = String(match[1] || '').toLowerCase()
+    if (!rel.includes('image_src') && !rel.includes('apple-touch-icon') && !rel.includes('icon')) continue
+    const normalized = normalizeImageUrl(match[2], baseUrl)
+    if (normalized && isImageUrlCandidate(normalized)) return normalized
+  }
+
   return null
 }
 
 function extractJsonLdImages(html, baseUrl) {
-  const matches = html.matchAll(/<script[^>]*type=["']application\/ld\json["'][^>]*>([\s\S]*?)<\/script>/gi)
+  const matches = html.matchAll(/<script[^>]*type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)
+  const candidates = []
+
+  const collect = (value) => {
+    if (!value) return
+    if (Array.isArray(value)) {
+      value.forEach((next) => collect(next))
+      return
+    }
+    if (typeof value === 'string') {
+      candidates.push(value)
+      return
+    }
+    if (typeof value !== 'object') return
+    if (typeof value.url === 'string') candidates.push(value.url)
+    if (typeof value.image === 'string') candidates.push(value.image)
+    if (typeof value.logo === 'string') candidates.push(value.logo)
+    if (typeof value.contentUrl === 'string') candidates.push(value.contentUrl)
+    if (typeof value.thumbnailUrl === 'string') candidates.push(value.thumbnailUrl)
+    if (Array.isArray(value.image)) value.image.forEach((next) => collect(next))
+    if (typeof value.image === 'object') collect(value.image)
+    if (typeof value.photo === 'object') collect(value.photo)
+    if (Array.isArray(value.photo)) value.photo.forEach((next) => collect(next))
+    if (typeof value.publisher === 'object') collect(value.publisher)
+    if (typeof value.potentialAction === 'object') collect(value.potentialAction)
+    if (typeof value.target === 'object') collect(value.target)
+  }
+
   for (const match of matches) {
     try {
       const parsed = JSON.parse(safeText(match[1] || '{}'))
-      const candidates = []
-      const enqueue = (value) => {
-        if (!value) return
-        if (Array.isArray(value)) {
-          value.forEach((next) => enqueue(next))
-          return
-        }
-        if (typeof value === 'object') {
-          if (value.url) candidates.push(value.url)
-          return
-        }
-        candidates.push(value)
-      }
-
-      const addFrom = (obj) => {
-        if (!obj || typeof obj !== 'object') return
-        enqueue(obj.image)
-        if (Array.isArray(obj.image) && obj.image.length && typeof obj.image[0] === 'object') {
-          enqueue(obj.image[0].url)
-        }
-      }
-
-      if (Array.isArray(parsed)) {
-        parsed.forEach(addFrom)
-      } else {
-        addFrom(parsed)
-      }
-
-      for (const candidate of candidates) {
-        const normalized = normalizeImageUrl(candidate, baseUrl)
-        if (normalized) return normalized
-      }
+      collect(parsed)
     } catch (error) {
       continue
     }
   }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeImageUrl(candidate, baseUrl)
+    if (!normalized || !isImageUrlCandidate(normalized)) continue
+    return normalized
+  }
   return null
+}
+
+function extractScriptImageCandidates(html, baseUrl) {
+  const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi
+  const candidates = []
+
+  for (const scriptMatch of html.matchAll(scriptRegex)) {
+    const scriptBody = safeText(scriptMatch[1])
+    if (!scriptBody) continue
+
+    const maybeJson = scriptBody.match(/(\{[\s\S]*\}|\[[\s\S]*\])/)
+    if (maybeJson?.[1]) {
+      try {
+        const parsed = JSON.parse(maybeJson[1])
+        const collect = (value) => {
+          if (!value) return
+          if (Array.isArray(value)) {
+            value.forEach((next) => collect(next))
+            return
+          }
+          if (typeof value === 'string') {
+            if (isImageUrlCandidate(value)) candidates.push(value)
+            return
+          }
+          if (typeof value !== 'object') return
+          Object.values(value).forEach((next) => collect(next))
+        }
+        collect(parsed)
+      } catch (error) {}
+    }
+
+    const imageLikeRegex = /(https?:\/\/[^"'\s<>]+\.(?:jpe?g|png|webp|gif|avif|bmp)(?:[^"'\s<>]*)?)/gi
+    for (const candidate of scriptBody.matchAll(imageLikeRegex)) {
+      if (candidate?.[1]) candidates.push(candidate[1])
+      if (candidates.length > 40) break
+    }
+
+    const mapTokenRegex = /(https?:\/\/[^"'\s<>]*(?:lh3\.googleusercontent\.com|\.gstatic\.com)[^"'\s<>]*)/gi
+    for (const candidate of scriptBody.matchAll(mapTokenRegex)) {
+      if (candidate?.[1]) candidates.push(candidate[1])
+      if (candidates.length > 40) break
+    }
+    if (candidates.length > 40) break
+  }
+
+  for (const candidate of candidates) {
+    const normalized = normalizeImageUrl(candidate, baseUrl)
+    if (!normalized || !isImageUrlCandidate(normalized)) continue
+    return normalized
+  }
+
+  return null
+}
+
+function decodeMapText(value) {
+  try {
+    return decodeURIComponent(safeText(value))
+  } catch (error) {
+    return safeText(value)
+  }
+}
+
+function extractCoordinateText(value) {
+  const match = String(value || '').match(/(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)\s*(?:,|$)/)
+  if (!match) return null
+  const latitude = Number(match[1])
+  const longitude = Number(match[2])
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+  if (Math.abs(latitude) > 90 || Math.abs(longitude) > 180) return null
+  return { latitude, longitude }
+}
+
+function extractMapPlaceContext(rawUrl) {
+  const context = { coordinates: null, searchText: null }
+  try {
+    const parsed = new URL(rawUrl)
+    const params = ['ll', 'sll', 'center', 'q']
+    for (const key of params) {
+      const raw = parsed.searchParams.get(key)
+      if (!raw) continue
+      const coordinate = extractCoordinateText(raw)
+      if (coordinate) {
+        context.coordinates = coordinate
+        return context
+      }
+      if (!context.searchText) context.searchText = decodeMapText(raw)
+    }
+
+    const atMatch = parsed.pathname.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/)
+    if (atMatch) {
+      const latitude = Number(atMatch[1])
+      const longitude = Number(atMatch[2])
+      if (Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        context.coordinates = { latitude, longitude }
+        return context
+      }
+    }
+
+    const searchMatch = parsed.pathname.match(/\/search\/([^/?#]+)/)
+    if (searchMatch) {
+      context.searchText = decodeMapText(searchMatch[1]).replace(/\+/g, ' ')
+      return context
+    }
+
+    const placeMatch = parsed.pathname.match(/\/place\/([^/?#]+)/)
+    if (placeMatch) {
+      context.searchText = decodeMapText(placeMatch[1]).replace(/\+/g, ' ')
+      return context
+    }
+  } catch (error) {}
+  return context
+}
+
+async function geocodeSearchText(searchText) {
+  if (!searchText) return null
+  const cacheKey = `geocode:${searchText}`
+  const cached = mapThumbnailCache.get(cacheKey)
+  if (cached && Date.now() - cached.timestamp < MAP_THUMBNAIL_CACHE_SECONDS * 1000) return cached.value
+
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(searchText)}`,
+      {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (compatible; thravel/1.0)',
+          accept: 'application/json',
+        },
+      },
+    )
+    if (!response.ok) return null
+    const payload = await response.json()
+    if (!Array.isArray(payload) || !payload.length) return null
+    const first = payload[0]
+    const latitude = Number(first.lat)
+    const longitude = Number(first.lon)
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null
+    const coordinates = { latitude, longitude }
+    mapThumbnailCache.set(cacheKey, { timestamp: Date.now(), value: coordinates })
+    return coordinates
+  } catch (error) {
+    return null
+  }
+}
+
+function createMapFallbackImage(context) {
+  const latitude = Number(context?.latitude)
+  const longitude = Number(context?.longitude)
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return 'https://staticmap.openstreetmap.de/staticmap.php?center=0,0&zoom=1&size=420x240&markers=0,0,red-pushpin&maptype=mapnik'
+  }
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=14&size=420x240&markers=${latitude},${longitude},red-pushpin&maptype=mapnik`
+}
+
+async function resolveMapUrl(rawUrl) {
+  try {
+    const response = await fetch(rawUrl, {
+      method: 'GET',
+      redirect: 'follow',
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'en-US,en;q=0.9',
+      },
+    })
+    return response.url
+  } catch (error) {
+    return safeText(rawUrl)
+  }
 }
 
 async function resolveMapThumbnailFromUrl(urlText) {
   if (!isGoogleMapsUrl(urlText)) return null
 
+  const cached = getCachedMapThumbnail(urlText)
+  if (cached !== null) return cached
+
   try {
-    const response = await fetch(urlText, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
-    if (!response.ok) return null
+    const resolvedUrl = await resolveMapUrl(urlText)
+    const response = await fetch(resolvedUrl, {
+      redirect: 'follow',
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'en-US,en;q=0.9',
+      },
+    })
+    if (!response.ok) throw new Error('failed to fetch map page')
     const html = await response.text()
+    const pageUrl = response.url
 
-    const meta = extractMetaImage(html, urlText)
-    if (meta) return meta
+    const meta = extractMetaImage(html, pageUrl)
+    if (meta) {
+      setCachedMapThumbnail(urlText, meta)
+      return meta
+    }
 
-    const jsonLd = extractJsonLdImages(html, urlText)
-    if (jsonLd) return jsonLd
+    const jsonLd = extractJsonLdImages(html, pageUrl)
+    if (jsonLd) {
+      setCachedMapThumbnail(urlText, jsonLd)
+      return jsonLd
+    }
+
+    const scriptImage = extractScriptImageCandidates(html, pageUrl)
+    if (scriptImage) {
+      setCachedMapThumbnail(urlText, scriptImage)
+      return scriptImage
+    }
+
+    const context = extractMapPlaceContext(pageUrl)
+    let coordinates = context?.coordinates
+    if (!coordinates && context?.searchText) {
+      coordinates = await geocodeSearchText(context.searchText)
+    }
+    const fallback = createMapFallbackImage(coordinates)
+    setCachedMapThumbnail(urlText, fallback)
+    return fallback
   } catch (error) {
-    return null
+    const context = extractMapPlaceContext(urlText)
+    let coordinates = context?.coordinates
+    if (!coordinates && context?.searchText) {
+      coordinates = await geocodeSearchText(context.searchText)
+    }
+    const fallback = createMapFallbackImage(coordinates)
+    setCachedMapThumbnail(urlText, fallback)
+    return fallback
   }
-
-  return null
 }
 
 function randomId() {

@@ -437,10 +437,12 @@ function ExpenseRow({
   removeExpense,
   exchangeRates,
 }) {
+  const [thumbnailFailed, setThumbnailFailed] = useState(false)
   const name = expense.merchant || expense.note || 'expense'
   const showNote = expense.note && expense.note !== name
   const vndRate = expense.currency === 'VND' ? null : exchangeRates[expense.currency]
   const hasMapUrl = Boolean(expense.google_map_url)
+  const showThumbnail = Boolean(expense.thumbnail_url) && !thumbnailFailed
 
   if (editing) {
     return (
@@ -526,7 +528,16 @@ function ExpenseRow({
       <div className="left">
         {expense.thumbnail_url || hasMapUrl ? (
           <span className="thumb-wrap">
-            {expense.thumbnail_url ? <img src={expense.thumbnail_url} alt="Map" loading="lazy" /> : <span className="thumb-icon">📍</span>}
+            {showThumbnail ? (
+              <img
+                src={expense.thumbnail_url}
+                alt="Map"
+                loading="lazy"
+                onError={() => setThumbnailFailed(true)}
+              />
+            ) : (
+              <span className="thumb-icon">&#128205;</span>
+            )}
           </span>
         ) : null}
         <span className="merchant">{name}</span>
@@ -567,3 +578,4 @@ function Archive({ trips, openTrip }) {
 }
 
 export default App
+
