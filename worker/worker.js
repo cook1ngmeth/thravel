@@ -1,6 +1,8 @@
 const CATEGORIES = ['food', 'transport', 'lodging', 'activities', 'shopping', 'other']
 const CURRENCIES = ['VND', 'USD', 'CAD', 'THB']
 const DEFAULT_NOTEBOOK_CODE = 'SHAREDTRIP'
+const EXCHANGE_CACHE_SECONDS = 60 * 60 * 24
+const exchangeCache = new Map()
 
 const CURRENCY_WORDS = {
   vnd: 'VND',
@@ -37,6 +39,38 @@ function randomId() {
 function normalizeCurrency(currency, fallback = 'VND') {
   const next = String(currency || fallback).toUpperCase()
   return CURRENCIES.includes(next) ? next : fallback
+}
+
+async function fetchExchangeQuote(amount, from, to) {
+  const source = normalizeCurrency(from, 'USD')
+  const target = normalizeCurrency(to, 'VND')
+  const value = Number(amount)
+  if (!Number.isFinite(value)) throw new Error('valid amount required')
+
+  const now = Date.now()
+  const cached = exchangeCache.get(source)
+  let payload = cached?.payload
+  if (!payload || now - cached.timestamp > EXCHANGE_CACHE_SECONDS * 1000) {
+    const response = await fetch(`https://open.er-api.com/v6/latest/${source}`)
+    if (!response.ok) throw new Error('exchange rates unavailable')
+    payload = await response.json()
+    if (payload.result !== 'success' || !payload.rates?.[target]) {
+      throw new Error('exchange rate unavailable')
+    }
+    exchangeCache.set(source, { timestamp: now, payload })
+  }
+
+  const rate = Number(payload.rates[target])
+  return {
+    amount: value,
+    from: source,
+    to: target,
+    rate,
+    converted: value * rate,
+    updated_at: payload.time_last_update_utc,
+    next_update_at: payload.time_next_update_utc,
+    provider: payload.provider || 'https://www.exchangerate-api.com',
+  }
 }
 
 function normalizeCategory(text) {
@@ -331,6 +365,13 @@ export default {
       if (!pathname.startsWith('/api/')) {
         if (env.ASSETS?.fetch) return env.ASSETS.fetch(request)
         return toError('Assets binding unavailable', 500)
+      }
+
+      if (pathname === '/api/exchange' && request.method === 'GET') {
+        const amount = url.searchParams.get('amount') || '1'
+        const from = url.searchParams.get('from') || 'USD'
+        const to = url.searchParams.get('to') || 'VND'
+        return json({ quote: await fetchExchangeQuote(amount, from, to) })
       }
 
       const notebook = await getOrCreateDefaultNotebook(db)

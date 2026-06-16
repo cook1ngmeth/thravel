@@ -375,6 +375,12 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+.right small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .ledger-row-edit .edit-inline {
   display: grid;
   grid-template-columns: minmax(0, 1.25fr) minmax(7rem, 0.8fr);

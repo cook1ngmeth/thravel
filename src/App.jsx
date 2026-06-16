@@ -62,6 +62,7 @@ function App() {
   const [editDraft, setEditDraft] = useState(null)
   const [editingTrip, setEditingTrip] = useState(false)
   const [tripDraft, setTripDraft] = useState({ destination: '', currency: 'VND' })
+  const [exchangeRates, setExchangeRates] = useState({})
 
   const grouped = useMemo(() => byDate(expenses), [expenses])
   const totals = useMemo(() => totalsByCurrency(expenses), [expenses])
@@ -72,6 +73,10 @@ function App() {
   useEffect(() => {
     boot()
   }, [])
+
+  useEffect(() => {
+    refreshExchangeRates()
+  }, [expenses])
 
   async function boot() {
     setLoading(true)
@@ -259,6 +264,24 @@ function App() {
     }
   }
 
+  async function refreshExchangeRates() {
+    const needed = [...new Set(expenses.map((item) => item.currency).filter((currency) => currency && currency !== 'VND'))]
+    const missing = needed.filter((currency) => !exchangeRates[currency])
+    if (!missing.length) return
+
+    try {
+      const quotes = await Promise.all(
+        missing.map(async (currency) => {
+          const data = await fetchJson(`/api/exchange?amount=1&from=${currency}&to=VND`)
+          return [currency, data.quote.rate]
+        }),
+      )
+      setExchangeRates((prev) => ({ ...prev, ...Object.fromEntries(quotes) }))
+    } catch (err) {
+      // Exchange rates are optional context; expense capture should stay quiet if they fail.
+    }
+  }
+
   return (
     <main className="app-shell">
       <header className="top trip-header">
@@ -372,6 +395,7 @@ function App() {
                     cancelEdit={cancelEdit}
                     saveEdit={saveEdit}
                     removeExpense={removeExpense}
+                    exchangeRates={exchangeRates}
                   />
                 ))}
               </article>
@@ -395,9 +419,11 @@ function ExpenseRow({
   cancelEdit,
   saveEdit,
   removeExpense,
+  exchangeRates,
 }) {
   const name = expense.merchant || expense.note || 'expense'
   const showNote = expense.note && expense.note !== name
+  const vndRate = expense.currency === 'VND' ? null : exchangeRates[expense.currency]
 
   if (editing) {
     return (
@@ -481,6 +507,9 @@ function ExpenseRow({
       </div>
       <div className="right">
         <span>{currencyFormatter(expense.amount, expense.currency)}</span>
+        {vndRate ? (
+          <small>{currencyFormatter(Number(expense.amount || 0) * vndRate, 'VND')}</small>
+        ) : null}
       </div>
       <div className="row-actions">
         <button className="quiet" onClick={() => startEdit(expense)}>
