@@ -47,6 +47,7 @@ function initialDraft(item) {
     amount: String(item.amount ?? ''),
     currency: item.currency || 'VND',
     expense_date: item.expense_date || new Date().toISOString().slice(0, 10),
+    google_map_url: item.google_map_url || '',
   }
 }
 
@@ -246,7 +247,11 @@ function App() {
       const data = await fetchJson(`/api/expenses/${editingId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...editDraft, amount: Number(editDraft.amount) }),
+        body: JSON.stringify({
+          ...editDraft,
+          amount: Number(editDraft.amount),
+          google_map_url: editDraft.google_map_url || null,
+        }),
       })
       const next = expenses.map((item) => (item.id === editingId ? data.expense : item))
       setExpenses(next)
@@ -435,6 +440,7 @@ function ExpenseRow({
   const name = expense.merchant || expense.note || 'expense'
   const showNote = expense.note && expense.note !== name
   const vndRate = expense.currency === 'VND' ? null : exchangeRates[expense.currency]
+  const hasMapUrl = Boolean(expense.google_map_url)
 
   if (editing) {
     return (
@@ -491,6 +497,14 @@ function ExpenseRow({
               onChange={(event) => setEditDraft((prev) => ({ ...prev, note: event.target.value }))}
             />
           </label>
+          <label className="edit-note">
+            <span>Google Maps URL</span>
+            <input
+              value={editDraft.google_map_url}
+              placeholder="https://maps.google.com/..."
+              onChange={(event) => setEditDraft((prev) => ({ ...prev, google_map_url: event.target.value }))}
+            />
+          </label>
           <div className="actions">
             <button className="quiet" onClick={saveEdit}>
               save
@@ -510,6 +524,11 @@ function ExpenseRow({
   return (
     <div className="entry ledger-row">
       <div className="left">
+        {expense.thumbnail_url || hasMapUrl ? (
+          <span className="thumb-wrap">
+            {expense.thumbnail_url ? <img src={expense.thumbnail_url} alt="Map" loading="lazy" /> : <span className="thumb-icon">📍</span>}
+          </span>
+        ) : null}
         <span className="merchant">{name}</span>
         {showNote ? <span className="muted">{expense.note}</span> : null}
       </div>

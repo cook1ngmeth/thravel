@@ -3,6 +3,7 @@ const CURRENCIES = ['VND', 'USD', 'CAD', 'THB']
 const DEFAULT_NOTEBOOK_CODE = 'SHAREDTRIP'
 const EXCHANGE_CACHE_SECONDS = 60 * 60 * 24
 const exchangeCache = new Map()
+const GOOGLE_MAP_HOSTS = ['maps.google.com', 'google.com', 'www.google.com', 'maps.app.goo.gl', 'goo.gl', 'g.co']
 
 const CURRENCY_WORDS = {
   vnd: 'VND',
@@ -30,6 +31,116 @@ function toError(message, status = 500) {
 
 function parseBody(request) {
   return request.json().catch(() => ({}))
+}
+
+function safeText(value) {
+  if (value === null || value === undefined) return ''
+  return String(value).trim()
+}
+
+function isGoogleMapsUrl(urlText) {
+  try {
+    const value = safeText(urlText)
+    if (!value) return false
+    const parsed = new URL(value)
+    const host = parsed.hostname.toLowerCase()
+    if (!GOOGLE_MAP_HOSTS.some((candidate) => host === candidate || host.endsWith(`.${candidate}`))) return false
+    if (host.includes('goo.gl')) return true
+    return parsed.pathname.startsWith('/maps') || parsed.pathname.includes('/maps/')
+  } catch (error) {
+    return false
+  }
+}
+
+function normalizeImageUrl(rawUrl, baseUrl) {
+  try {
+    const value = safeText(rawUrl)
+    if (!value) return null
+    if (value.startsWith('//')) {
+      return `https:${value}`
+    }
+    if (value.startsWith('http://')) return null
+    const resolved = new URL(value, baseUrl)
+    return resolved.protocol === 'https:' ? resolved.href : null
+  } catch (error) {
+    return null
+  }
+}
+
+function extractMetaImage(html, baseUrl) {
+  const tags = ['og:image:secure_url', 'og:image', 'twitter:image', 'twitter:image:src']
+  for (const tag of tags) {
+    const regex = new RegExp(`<meta[^>]+(?:property|name)=["']${tag}["'][^>]+content=["']([^"']+)["'][^>]*>`, 'i')
+    const match = html.match(regex)
+    const candidate = match?.[1]
+    const normalized = normalizeImageUrl(candidate, baseUrl)
+    if (normalized) return normalized
+  }
+  return null
+}
+
+function extractJsonLdImages(html, baseUrl) {
+  const matches = html.matchAll(/<script[^>]*type=["']application\/ld\json["'][^>]*>([\s\S]*?)<\/script>/gi)
+  for (const match of matches) {
+    try {
+      const parsed = JSON.parse(safeText(match[1] || '{}'))
+      const candidates = []
+      const enqueue = (value) => {
+        if (!value) return
+        if (Array.isArray(value)) {
+          value.forEach((next) => enqueue(next))
+          return
+        }
+        if (typeof value === 'object') {
+          if (value.url) candidates.push(value.url)
+          return
+        }
+        candidates.push(value)
+      }
+
+      const addFrom = (obj) => {
+        if (!obj || typeof obj !== 'object') return
+        enqueue(obj.image)
+        if (Array.isArray(obj.image) && obj.image.length && typeof obj.image[0] === 'object') {
+          enqueue(obj.image[0].url)
+        }
+      }
+
+      if (Array.isArray(parsed)) {
+        parsed.forEach(addFrom)
+      } else {
+        addFrom(parsed)
+      }
+
+      for (const candidate of candidates) {
+        const normalized = normalizeImageUrl(candidate, baseUrl)
+        if (normalized) return normalized
+      }
+    } catch (error) {
+      continue
+    }
+  }
+  return null
+}
+
+async function resolveMapThumbnailFromUrl(urlText) {
+  if (!isGoogleMapsUrl(urlText)) return null
+
+  try {
+    const response = await fetch(urlText, { redirect: 'follow', headers: { 'user-agent': 'Mozilla/5.0' } })
+    if (!response.ok) return null
+    const html = await response.text()
+
+    const meta = extractMetaImage(html, urlText)
+    if (meta) return meta
+
+    const jsonLd = extractJsonLdImages(html, urlText)
+    if (jsonLd) return jsonLd
+  } catch (error) {
+    return null
+  }
+
+  return null
 }
 
 function randomId() {
@@ -298,7 +409,7 @@ async function getActiveTrip(db, notebookId) {
 async function listExpenses(db, tripId) {
   const result = await db
     .prepare(
-      `SELECT id, trip_id, amount, currency, category, merchant, note, expense_date, source_text, confidence, created_at, updated_at
+      `SELECT id, trip_id, amount, currency, category, merchant, note, expense_date, source_text, confidence, google_map_url, thumbnail_url, created_at, updated_at
        FROM expenses
        WHERE trip_id = ?
        ORDER BY expense_date DESC, created_at DESC`,
@@ -315,8 +426,8 @@ async function insertExpense(db, notebookId, tripId, item, sourceText, defaultCu
   await db
     .prepare(
       `INSERT INTO expenses
-      (id, notebook_id, trip_id, amount, currency, category, merchant, note, expense_date, source_text, confidence, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (id, notebook_id, trip_id, amount, currency, category, merchant, note, expense_date, source_text, google_map_url, thumbnail_url, confidence, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .bind(
       id,
@@ -329,6 +440,8 @@ async function insertExpense(db, notebookId, tripId, item, sourceText, defaultCu
       item.note || '',
       item.expense_date || todayISO(),
       sourceText || '',
+      item.google_map_url || null,
+      item.thumbnail_url || null,
       item.confidence || 0.25,
       now,
       now,
@@ -344,6 +457,8 @@ async function insertExpense(db, notebookId, tripId, item, sourceText, defaultCu
     note: item.note || '',
     expense_date: item.expense_date || todayISO(),
     source_text: sourceText || '',
+    google_map_url: item.google_map_url || null,
+    thumbnail_url: item.thumbnail_url || null,
     confidence: item.confidence || 0.25,
     created_at: now,
     updated_at: now,
@@ -461,11 +576,23 @@ export default {
         const existing = await db.prepare('SELECT * FROM expenses WHERE id = ?').bind(id).first()
         if (!existing) return toError('expense not found', 404)
 
+        const nextMapUrl = body.google_map_url === undefined ? existing.google_map_url : safeText(body.google_map_url) || null
+        let nextThumbnail = existing.thumbnail_url
+        if (body.google_map_url !== undefined) {
+          if (!nextMapUrl) {
+            nextThumbnail = null
+          } else if (isGoogleMapsUrl(nextMapUrl)) {
+            nextThumbnail = await resolveMapThumbnailFromUrl(nextMapUrl)
+          } else {
+            nextThumbnail = null
+          }
+        }
+
         const now = new Date().toISOString()
         await db
           .prepare(
             `UPDATE expenses
-             SET amount = ?, currency = ?, category = ?, merchant = ?, note = ?, expense_date = ?, updated_at = ?
+             SET amount = ?, currency = ?, category = ?, merchant = ?, note = ?, expense_date = ?, google_map_url = ?, thumbnail_url = ?, updated_at = ?
              WHERE id = ?`,
           )
           .bind(
@@ -475,6 +602,8 @@ export default {
             body.merchant ?? existing.merchant,
             body.note ?? existing.note,
             body.expense_date || body.expenseDate || existing.expense_date,
+            nextMapUrl,
+            nextThumbnail,
             now,
             id,
           )
