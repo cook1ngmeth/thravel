@@ -1,0 +1,318 @@
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;800&display=swap');
+
+:root {
+  --bg: #f3f5fb;
+  --surface: #ffffff;
+  --surface-soft: #f8f9fc;
+  --text: #162033;
+  --muted: #6d7687;
+  --line: #dde3ef;
+  --line-strong: #cfd7e6;
+  --primary: #182235;
+  --primary-soft: #eef2f8;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Roboto', 'Segoe UI', Arial, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.95), transparent 42%),
+    linear-gradient(180deg, #f7f8fc 0%, #eef2f8 100%);
+}
+
+#root {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 1rem 1rem 2rem;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.top h1 {
+  margin: 0;
+  text-transform: lowercase;
+  letter-spacing: 0.09em;
+  font-size: clamp(2.2rem, 6vw, 3rem);
+}
+
+.top p {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 1rem;
+  box-shadow: 0 18px 45px rgba(22, 32, 51, 0.06);
+}
+
+.field,
+.inline,
+.actions,
+.row-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.field span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+textarea,
+input,
+button {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 1rem;
+  font-family: inherit;
+}
+
+textarea,
+input {
+  padding: 0.8rem 0.95rem;
+  background: var(--surface-soft);
+  color: var(--text);
+  outline: none;
+}
+
+textarea:focus,
+input:focus {
+  border-color: var(--line-strong);
+  background: #fff;
+}
+
+button {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  padding: 0.9rem 1rem;
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+.muted {
+  color: var(--muted);
+  margin: 0;
+  font-size: 0.88rem;
+}
+
+.error {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border: 1px solid #ffd4dd;
+  border-radius: 14px;
+  color: #9f1239;
+  background: #fff1f2;
+}
+
+.unified-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.95rem;
+}
+
+.hero-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: stretch;
+}
+
+.hero-copy,
+.total-tile {
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fc 100%);
+  padding: 0.9rem 1rem;
+}
+
+.hero-copy strong,
+.total-tile strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.total-tile {
+  min-width: 11rem;
+  text-align: right;
+}
+
+.eyebrow {
+  color: var(--muted);
+  font-size: 0.74rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+}
+
+textarea {
+  min-height: 112px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.stack-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.primary {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.join-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.65rem;
+}
+
+.secondary {
+  width: auto;
+  min-width: 6rem;
+  background: var(--primary-soft);
+  color: var(--primary);
+  border-color: var(--line);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.day-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 0.85rem 0.9rem;
+}
+
+.day-card h2 {
+  margin: 0 0 0.45rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.entry {
+  padding: 0.75rem 0;
+  border-top: 1px solid #eef2f7;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.left {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.merchant {
+  font-weight: 700;
+}
+
+.right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.row-actions {
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+.row-actions button {
+  padding: 0.35rem 0.55rem;
+  font-size: 0.75rem;
+  width: auto;
+  border-radius: 10px;
+  border-color: var(--line);
+  background: var(--surface-soft);
+  color: var(--primary);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.edit-inline {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.inline {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.inline input,
+.actions {
+  width: 100%;
+}
+
+.inline input,
+.edit-inline input {
+  flex: 1;
+}
+
+.actions {
+  flex-direction: row;
+  justify-content: flex-end;
+  gap: 0.45rem;
+}
+
+@media (max-width: 640px) {
+  .hero-row,
+  .join-row,
+  .entry {
+    grid-template-columns: 1fr;
+  }
+
+  .entry {
+    align-items: flex-start;
+  }
+
+  .right,
+  .total-tile {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  .secondary {
+    width: 100%;
+  }
+}

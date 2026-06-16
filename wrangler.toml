@@ -1,0 +1,15 @@
+name = "thravel"
+main = "./worker/worker.js"
+compatibility_date = "2026-06-16"
+
+[assets]
+directory = "dist"
+not_found_handling = "single-page-application"
+
+[ai]
+binding = "AI"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "thravel"
+database_id = "59ba1d26-23e5-4011-b664-3c626f3b241a"
