@@ -365,7 +365,7 @@ function App() {
   return (
     <main className="app-shell">
       <header className="top trip-header">
-        <div>
+        <div className="brand-block">
           <h1>Our Travel</h1>
           <p>{viewTrip ? viewTrip.destination || 'Untitled trip' : 'Start a clean trip log'}</p>
         </div>
@@ -390,7 +390,7 @@ function App() {
       ) : (
         <>
           <section className="card trip-card">
-            <div className="trip-toolbar">
+            <div className={canCapture ? 'trip-toolbar' : 'trip-toolbar trip-toolbar-ended'}>
               {editingTrip ? (
                 <div className="trip-edit">
                   <input
@@ -413,7 +413,7 @@ function App() {
                 </div>
               ) : (
                 <>
-                  <div>
+                  <div className="trip-title-block">
                     <span className="eyebrow">destination</span>
                     <strong>{viewTrip.destination || 'Untitled trip'}</strong>
                   </div>
@@ -447,6 +447,7 @@ function App() {
             ) : (
               <div className="ended-strip">
                 <span>Ended trip</span>
+                <small>Browse and edit saved expenses</small>
               </div>
             )}
 
@@ -668,10 +669,15 @@ function Archive({ trips, openTrip, elevated = false }) {
       <h2>Previous trips</h2>
       {trips.map((trip) => (
         <button className="archive-row" key={trip.id} onClick={() => openTrip(trip)}>
-          <span>{trip.destination || 'Untitled trip'}</span>
-          <small>
-            {trip.currency} - {trip.status === 'active' ? 'active' : 'ended'}
-          </small>
+          <span className="archive-main">{trip.destination || 'Untitled trip'}</span>
+          <span className="archive-meta">
+            <small>
+              {trip.currency} - {trip.status === 'active' ? 'active' : 'ended'}
+            </small>
+            <span className="archive-arrow" aria-hidden="true">
+              &rsaquo;
+            </span>
+          </span>
         </button>
       ))}
     </section>
