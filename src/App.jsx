@@ -442,7 +442,6 @@ function App() {
                 <div className="ledger-head">
                   <span className="thumb-head" />
                   <span>Name</span>
-                  <span>Category</span>
                   <span>Amount</span>
                 </div>
                 {rows.map((expense) => (
@@ -624,10 +623,8 @@ function ExpenseRow({
 
       <div className="left-row-content">
         <span className="merchant">{name}</span>
+        <span className="ledger-category row-category">{expense.category || 'other'}</span>
         {showNote ? <span className="muted">{expense.note}</span> : null}
-      </div>
-      <div className="left-row-content">
-        <span className="ledger-category">{expense.category || 'other'}</span>
       </div>
       <div className="right">
         <span>{currencyFormatter(expense.amount, expense.currency)}</span>
