@@ -31,7 +31,7 @@ Use the displayed sync code to join on another device.
 
 ## Deployed URL
 
-`https://thravel.effici.workers.dev`
+`https://us.effici.workers.dev`
 
 ## GitHub hosting and CI/CD (cook1ngmeth)
 
