@@ -395,10 +395,10 @@ function App() {
               <article key={date} className="day-card">
                 <h2>{formatDay(date)}</h2>
                 <div className="ledger-head">
+                  <span className="thumb-head" />
                   <span>Name</span>
                   <span>Category</span>
                   <span>Amount</span>
-                  <span />
                 </div>
                 {rows.map((expense) => (
                   <ExpenseRow
@@ -524,38 +524,71 @@ function ExpenseRow({
   }
 
   return (
-    <div className="entry ledger-row">
-      <div className="left">
-        {expense.thumbnail_url || hasMapUrl ? (
-          <span className="thumb-wrap">
-            {showThumbnail ? (
-              <img
-                src={expense.thumbnail_url}
-                alt="Map"
-                loading="lazy"
-                onError={() => setThumbnailFailed(true)}
-              />
-            ) : (
-              <span className="thumb-icon">&#128205;</span>
-            )}
-          </span>
-        ) : null}
+    <div
+      role="button"
+      tabIndex={0}
+      className="entry ledger-row row-open-trigger"
+      onClick={() => startEdit(expense)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          startEdit(expense)
+        }
+      }}
+      aria-label={`Edit ${name}`}
+    >
+      {hasMapUrl ? (
+        <a
+          className="thumb-wrap"
+          href={expense.google_map_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.stopPropagation()
+            }
+          }}
+          aria-label={expense.merchant ? `Open ${expense.merchant} on maps` : 'Open map'}
+        >
+          {showThumbnail ? (
+            <img
+              src={expense.thumbnail_url}
+              alt="Map"
+              loading="lazy"
+              onError={() => setThumbnailFailed(true)}
+            />
+          ) : (
+            <span className="thumb-icon">&#128205;</span>
+          )}
+        </a>
+      ) : (
+        <span className="thumb-wrap">
+          {showThumbnail ? (
+            <img
+              src={expense.thumbnail_url}
+              alt="Map"
+              loading="lazy"
+              onError={() => setThumbnailFailed(true)}
+            />
+          ) : (
+            <span className="thumb-icon">&#128205;</span>
+          )}
+        </span>
+      )}
+
+      <div className="left-row-content">
         <span className="merchant">{name}</span>
         {showNote ? <span className="muted">{expense.note}</span> : null}
       </div>
-      <div className="ledger-category">
-        <span>{expense.category || 'other'}</span>
+      <div className="left-row-content">
+        <span className="ledger-category">{expense.category || 'other'}</span>
       </div>
       <div className="right">
         <span>{currencyFormatter(expense.amount, expense.currency)}</span>
         {vndRate ? (
           <small>{currencyFormatter(Number(expense.amount || 0) * vndRate, 'VND')}</small>
         ) : null}
-      </div>
-      <div className="row-actions">
-        <button className="quiet" onClick={() => startEdit(expense)}>
-          edit
-        </button>
       </div>
     </div>
   )

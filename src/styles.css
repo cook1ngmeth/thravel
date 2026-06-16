@@ -39,9 +39,10 @@ body {
 
 .top h1 {
   margin: 0;
-  text-transform: lowercase;
-  letter-spacing: 0.09em;
-  font-size: clamp(2.2rem, 6vw, 3rem);
+  letter-spacing: 0.02em;
+  font-size: clamp(1.7rem, 6vw, 2.4rem);
+  font-weight: 700;
+  line-height: 1.05;
 }
 
 .top p {
@@ -87,7 +88,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 18px;
   padding: 1rem;
-  box-shadow: 0 18px 45px rgba(22, 32, 51, 0.06);
+  box-shadow: 0 12px 28px rgba(22, 32, 51, 0.06);
 }
 
 .field,
@@ -328,7 +329,7 @@ textarea {
 
 .ledger-head {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 7.25rem 8.5rem 3.2rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 5.8rem 8.1rem;
   gap: 0.75rem;
   padding: 0 0.05rem 0.35rem;
   border-bottom: 1px solid var(--line);
@@ -338,7 +339,11 @@ textarea {
   text-transform: uppercase;
 }
 
-.ledger-head span:nth-child(3) {
+.ledger-head .thumb-head {
+  width: 0.5rem;
+}
+
+.ledger-head span:nth-child(4) {
   text-align: right;
 }
 
@@ -349,10 +354,32 @@ textarea {
 }
 
 .ledger-row {
+  width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 7.25rem 8.5rem 3.2rem;
+  grid-template-columns: 2.5rem minmax(0, 1fr) 5.8rem 8.1rem;
   gap: 0.75rem;
   align-items: center;
+  background: transparent;
+  border: 0;
+}
+
+.row-open-trigger {
+  text-align: left;
+  appearance: none;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.78rem 0.45rem;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.row-open-trigger:hover,
+.row-open-trigger:focus-visible {
+  background: #fcfdff;
+}
+
+.row-open-trigger:hover {
+  border-color: #ecf1fa;
 }
 
 .ledger-row-edit {
@@ -368,6 +395,7 @@ textarea {
   font-size: 0.84rem;
   text-transform: lowercase;
   justify-self: start;
+  white-space: nowrap;
 }
 
 .right {
@@ -438,19 +466,16 @@ textarea {
   padding: 0.65rem 0.75rem;
 }
 
-.left {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.62rem;
-  min-width: 0;
-}
-
-.left .merchant,
-.left .muted {
+.left-row-content {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
+  gap: 0.12rem;
+}
+
+.left-row-content .muted {
+  font-size: 0.78rem;
+  color: var(--muted);
 }
 
 .thumb-wrap {
@@ -484,6 +509,7 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.35;
 }
 
 .merchant {
@@ -499,32 +525,6 @@ textarea {
   flex-direction: column;
   gap: 0.4rem;
   flex-shrink: 0;
-}
-
-.row-actions {
-  display: flex;
-  flex-direction: row;
-  justify-content: flex-end;
-  gap: 0.2rem;
-  width: 3.2rem;
-  justify-self: end;
-  opacity: 0.82;
-  transition: opacity 160ms ease;
-}
-
-.ledger-row:hover .row-actions,
-.ledger-row:focus-within .row-actions {
-  opacity: 1;
-}
-
-.row-actions button {
-  width: auto;
-  border-color: #e4e9f2;
-  border-radius: 999px;
-  color: #5f6b7d;
-  font-size: 0.72rem;
-  padding: 0.14rem 0.46rem;
-  background: rgba(248, 250, 253, 0.85);
 }
 
 .edit-inline {
@@ -618,6 +618,10 @@ textarea {
   }
 
   .header-total {
+    gap: 0.05rem;
+  }
+
+  .header-total {
     align-items: flex-start;
   }
 
@@ -626,14 +630,19 @@ textarea {
   }
 
   .ledger-head {
-    grid-template-columns: minmax(0, 1fr) 4.8rem 6.45rem 2.9rem;
-    font-size: 0.65rem;
-    gap: 0.4rem;
+    grid-template-columns: 2.2rem minmax(0, 1fr) 5rem 7.1rem;
+    font-size: 0.68rem;
+    gap: 0.45rem;
   }
 
-  .ledger-row,
   .ledger-row {
-    grid-template-columns: minmax(0, 1fr) 4.8rem 6.45rem 2.9rem;
+    grid-template-columns: 2.2rem minmax(0, 1fr) 5rem 7.1rem;
+    gap: 0.45rem;
+    padding: 0.64rem 0.2rem;
+  }
+
+  .row-open-trigger {
+    border-radius: 10px;
   }
 
   .ledger-row-edit .edit-inline {
@@ -647,16 +656,5 @@ textarea {
 
   .right span {
     font-size: 0.84rem;
-  }
-
-  .row-actions {
-    width: auto;
-    gap: 0;
-    opacity: 0.9;
-  }
-
-  .row-actions button {
-    font-size: 0.66rem;
-    padding: 0.12rem 0.34rem;
   }
 }
