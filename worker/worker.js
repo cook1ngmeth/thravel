@@ -326,6 +326,12 @@ function parseCoordinatesFromHtml(html) {
   return parseCoordinatesFromText(html)
 }
 
+function extractTitleFromHtml(html) {
+  const match = html.match(/<title[^>]*>(.*?)<\/title>/i)
+  if (!match?.[1]) return null
+  return unescapeHtmlText(match[1].replace(/\s+/g, ' ').trim()).replace(/- Google Maps$/i, '').trim() || null
+}
+
 function extractCoordinateText(value) {
   const match = String(value || '').match(/(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)\s*(?:,|$)/)
   if (!match) return null
@@ -562,6 +568,9 @@ async function resolveMapThumbnailFromUrl(urlText) {
     if (!coordinates) {
       coordinates = parseCoordinatesFromHtml(html)
       if (coordinates) context.coordinates = coordinates
+    }
+    if (!context.searchText) {
+      context.searchText = extractTitleFromHtml(html)
     }
     let wikiImage = null
     if (coordinates) {
