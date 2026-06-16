@@ -332,6 +332,25 @@ function extractTitleFromHtml(html) {
   return unescapeHtmlText(match[1].replace(/\s+/g, ' ').trim()).replace(/- Google Maps$/i, '').trim() || null
 }
 
+async function isUsableMapImage(url) {
+  if (!url) return false
+  try {
+    const response = await fetch(url, {
+      method: 'HEAD',
+      redirect: 'follow',
+      headers: {
+        'user-agent': 'Mozilla/5.0 (compatible; thravel/1.0)',
+        accept: 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
+      },
+    })
+    if (!response.ok) return false
+    const type = response.headers.get('content-type') || ''
+    return !type || type.startsWith('image/')
+  } catch (error) {
+    return false
+  }
+}
+
 function extractCoordinateText(value) {
   const match = String(value || '').match(/(-?\d{1,3}(?:\.\d+)?),\s*(-?\d{1,3}(?:\.\d+)?)\s*(?:,|$)/)
   if (!match) return null
@@ -546,19 +565,19 @@ async function resolveMapThumbnailFromUrl(urlText) {
     const pageUrl = response.url
 
     const meta = extractMetaImage(html, pageUrl)
-    if (meta) {
+    if (meta && (await isUsableMapImage(meta))) {
       setCachedMapThumbnail(urlText, meta)
       return meta
     }
 
     const jsonLd = extractJsonLdImages(html, pageUrl)
-    if (jsonLd) {
+    if (jsonLd && (await isUsableMapImage(jsonLd))) {
       setCachedMapThumbnail(urlText, jsonLd)
       return jsonLd
     }
 
     const scriptImage = extractScriptImageCandidates(html, pageUrl)
-    if (scriptImage) {
+    if (scriptImage && (await isUsableMapImage(scriptImage))) {
       setCachedMapThumbnail(urlText, scriptImage)
       return scriptImage
     }
@@ -575,6 +594,7 @@ async function resolveMapThumbnailFromUrl(urlText) {
     let wikiImage = null
     if (coordinates) {
       wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
       if (wikiImage) {
         setCachedMapThumbnail(urlText, wikiImage)
         return wikiImage
@@ -585,6 +605,7 @@ async function resolveMapThumbnailFromUrl(urlText) {
     }
     if (coordinates) {
       wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
       if (wikiImage) {
         setCachedMapThumbnail(urlText, wikiImage)
         return wikiImage
@@ -600,6 +621,7 @@ async function resolveMapThumbnailFromUrl(urlText) {
     let wikiImage = null
     if (coordinates) {
       wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
     }
     if (wikiImage) {
       setCachedMapThumbnail(urlText, wikiImage)
@@ -610,6 +632,7 @@ async function resolveMapThumbnailFromUrl(urlText) {
     }
     if (coordinates) {
       wikiImage = await fetchWikipediaLocationImage(coordinates)
+      if (wikiImage && !(await isUsableMapImage(wikiImage))) wikiImage = null
       if (wikiImage) {
         setCachedMapThumbnail(urlText, wikiImage)
         return wikiImage
