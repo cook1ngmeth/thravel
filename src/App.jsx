@@ -67,6 +67,16 @@ function App() {
   const grouped = useMemo(() => byDate(expenses), [expenses])
   const totals = useMemo(() => totalsByCurrency(expenses), [expenses])
   const primaryTotal = totals[viewTrip?.currency || 'VND'] || 0
+  const estimatedVndTotal = useMemo(
+    () =>
+      expenses.reduce((sum, item) => {
+        const amount = Number(item.amount) || 0
+        if ((item.currency || 'VND') === 'VND') return sum + amount
+        const rate = exchangeRates[item.currency]
+        return rate ? sum + amount * rate : sum
+      }, 0),
+    [expenses, exchangeRates],
+  )
   const hasMixedCurrency = Object.keys(totals).length > 1
   const canCapture = viewTrip?.status === 'active'
 
@@ -293,6 +303,7 @@ function App() {
           <div className="header-total">
             <span>{viewTrip.status}</span>
             <strong>{currencyFormatter(primaryTotal, viewTrip.currency)}</strong>
+            {estimatedVndTotal ? <small>{currencyFormatter(estimatedVndTotal, 'VND')}</small> : null}
           </div>
         ) : null}
       </header>

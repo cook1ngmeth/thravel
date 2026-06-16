@@ -76,6 +76,12 @@ body {
   font-size: 1.2rem;
 }
 
+.header-total small {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
