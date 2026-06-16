@@ -396,6 +396,9 @@ function ExpenseRow({
   saveEdit,
   removeExpense,
 }) {
+  const name = expense.merchant || expense.note || 'expense'
+  const showNote = expense.note && expense.note !== name
+
   if (editing) {
     return (
       <div className="entry ledger-row ledger-row-edit">
@@ -455,8 +458,8 @@ function ExpenseRow({
   return (
     <div className="entry ledger-row">
       <div className="left">
-        <span className="merchant">{expense.merchant || expense.note || 'expense'}</span>
-        <span className="muted">{expense.note || 'manual entry'}</span>
+        <span className="merchant">{name}</span>
+        {showNote ? <span className="muted">{expense.note}</span> : null}
       </div>
       <div className="ledger-category">
         <span>{expense.category || 'other'}</span>
