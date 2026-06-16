@@ -70,11 +70,25 @@ function isImageUrlCandidate(rawUrl) {
   if (!value) return false
   if (!value.startsWith('http')) return false
   return (
+    value.includes('staticmap') ||
+    value.includes('maps/api/staticmap') ||
+    value.includes('openstreetmap.de/staticmap') ||
     value.includes('.googleusercontent.com') ||
     value.includes('lh3.googleusercontent.com') ||
     value.includes('gstatic.com') ||
     /\.(jpe?g|png|webp|gif|avif|bmp)(?:\?|#|$)/i.test(value)
   )
+}
+
+function unescapeHtmlText(value) {
+  if (!value) return ''
+  return safeText(value)
+    .replace(/\\u003d/gi, '=')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\u002f/gi, '/')
+    .replace(/\\u0022/gi, '"')
+    .replace(/\\u0027/gi, "'")
+    .replace(/&amp;/g, '&')
 }
 
 function isGoogleMapsUrl(urlText) {
@@ -107,12 +121,21 @@ function normalizeImageUrl(rawUrl, baseUrl) {
 }
 
 function extractMetaImage(html, baseUrl) {
-  const tags = new Set(['og:image:secure_url', 'og:image', 'twitter:image', 'twitter:image:src', 'twitter:image:secure_url', 'image'])
-  const metaRegex = /<meta[^>]+(?:property|name)=["']([^"']+)["'][^>]+content=["']([^"']+)["'][^>]*>/gi
+  const tags = new Set([
+    'og:image:secure_url',
+    'og:image',
+    'twitter:image',
+    'twitter:image:src',
+    'twitter:image:secure_url',
+    'image',
+    'image_src',
+  ])
+  const metaRegex =
+    /<meta[^>]+(?:property|name)=["']([^"']+)["'][^>]+(?:content|value)=["']([^"']+)["'][^>]*>/gi
   for (const match of html.matchAll(metaRegex)) {
     const tag = String(match[1] || '').toLowerCase()
     if (!tags.has(tag)) continue
-    const normalized = normalizeImageUrl(match[2], baseUrl)
+    const normalized = normalizeImageUrl(unescapeHtmlText(match[2]), baseUrl)
     if (normalized && isImageUrlCandidate(normalized)) return normalized
   }
 
@@ -120,7 +143,7 @@ function extractMetaImage(html, baseUrl) {
   for (const match of html.matchAll(linkRegex)) {
     const rel = String(match[1] || '').toLowerCase()
     if (!rel.includes('image_src') && !rel.includes('apple-touch-icon') && !rel.includes('icon')) continue
-    const normalized = normalizeImageUrl(match[2], baseUrl)
+    const normalized = normalizeImageUrl(unescapeHtmlText(match[2]), baseUrl)
     if (normalized && isImageUrlCandidate(normalized)) return normalized
   }
 
@@ -216,8 +239,42 @@ function extractScriptImageCandidates(html, baseUrl) {
     if (candidates.length > 40) break
   }
 
+  const rawImageRegex = /(https?:\/\/[^"'\\s<>]+(?:lh3\.googleusercontent\.com|\.gstatic\.com|maps\.googleapis\.com\/maps\/api\/staticmap|openstreetmap\.de\/staticmap\.php)[^"'\\s<>]*)/gi
+  for (const match of html.matchAll(rawImageRegex)) {
+    if (match?.[1]) candidates.push(match[1])
+  }
+
+  const genericImageTagRegex = /<img[^>]+(?:src|srcset|data-src)=["']([^"']+)["'][^>]*>/gi
+  for (const match of html.matchAll(genericImageTagRegex)) {
+    const raw = match?.[1]
+    if (!raw) continue
+    if (match[0].includes('srcset')) {
+      const set = raw.split(',')
+      for (const token of set) {
+        const candidate = token.trim().split(' ')[0]
+        if (candidate) candidates.push(candidate)
+      }
+    } else {
+      candidates.push(raw)
+    }
+  }
+
+  const scriptBodyRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi
+  for (const scriptMatch of html.matchAll(scriptBodyRegex)) {
+    const rawScript = unescapeHtmlText(scriptMatch?.[1] || '')
+    for (const match of rawScript.matchAll(rawImageRegex)) {
+      if (match?.[1]) candidates.push(match[1])
+    }
+  }
+
+  const allUrlRegex =
+    /["'](https?:\/\/[^"'\s<>]+(?:lh3\.googleusercontent\.com|\.gstatic\.com|maps\.googleapis\.com\/maps\/api\/staticmap|openstreetmap\.de\/staticmap\.php)[^"'\s<>]*)["']/gi
+  for (const match of html.matchAll(allUrlRegex)) {
+    if (match?.[1]) candidates.push(match[1])
+  }
+
   for (const candidate of candidates) {
-    const normalized = normalizeImageUrl(candidate, baseUrl)
+    const normalized = normalizeImageUrl(unescapeHtmlText(candidate), baseUrl)
     if (!normalized || !isImageUrlCandidate(normalized)) continue
     return normalized
   }
